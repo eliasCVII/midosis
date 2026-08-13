@@ -149,3 +149,4 @@ To stop containers and reset database data volume:
 ```bash
 docker compose down -v
 ```
+

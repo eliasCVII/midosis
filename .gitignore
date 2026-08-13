@@ -42,7 +42,6 @@ frontend/.pub-cache/
 frontend/build/
 !frontend/lib/
 
-
 # IDEs and Editors
 .idea/
 .vscode/
@@ -52,3 +51,4 @@ frontend/build/
 
 # Logs
 *.log
+
