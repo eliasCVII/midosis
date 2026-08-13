@@ -1,0 +1,54 @@
+# Environment variables
+.env
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+.pytest_cache/
+.coverage
+htmlcov/
+.venv/
+venv/
+ENV/
+
+# Database
+mysql_data/
+
+# Flutter / Dart
+.dart_tool/
+.pub-cache/
+.pub/
+frontend/.dart_tool/
+frontend/.pub/
+frontend/.pub-cache/
+frontend/build/
+!frontend/lib/
+
+
+# IDEs and Editors
+.idea/
+.vscode/
+*.swp
+*.swo
+*.DS_Store
+
+# Logs
+*.log
