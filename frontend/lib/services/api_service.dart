@@ -24,31 +24,45 @@ class ApiService {
     }
   }
 
-  // Register Manual Prescription
+  // Register Prescription (Supports multiple medications per prescription)
+  static Future<Map<String, dynamic>> registerPrescription({
+    required List<Map<String, dynamic>> medications,
+    String metodoIngreso = 'Manual',
+    String pacienteId = 'demo',
+  }) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/prescriptions/manual'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'IdPaciente': pacienteId,
+        'MetodoIngreso': metodoIngreso,
+        'Medications': medications,
+      }),
+    );
+
+    return jsonDecode(response.body);
+  }
+
+  // Legacy helper method for single medication registration
   static Future<Map<String, dynamic>> registerManualPrescription({
     required String nombre,
     required int frecuenciaHoras,
     required int duracionDias,
     required String horaInicio,
   }) async {
-    final response = await http.post(
-      Uri.parse('$baseUrl/prescriptions/manual'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'MetodoIngreso': 'Manual',
-        'Medications': [
-          {
-            'Nombre': nombre,
-            'FrecuenciaHoras': frecuenciaHoras,
-            'DuracionDias': duracionDias,
-            'HoraInicio': horaInicio,
-          }
-        ]
-      }),
+    return registerPrescription(
+      medications: [
+        {
+          'Nombre': nombre,
+          'FrecuenciaHoras': frecuenciaHoras,
+          'DuracionDias': duracionDias,
+          'HoraInicio': horaInicio,
+        }
+      ],
+      metodoIngreso: 'Manual',
     );
-
-    return jsonDecode(response.body);
   }
+
 
   // Fetch Patient Calendar
   static Future<List<ItemCalendarioModel>> getCalendar({String pacienteId = 'demo'}) async {
@@ -173,4 +187,33 @@ class ApiService {
     );
     return jsonDecode(response.body);
   }
+
+  // Scan Prescription Photo with optional crop box (Privacy PII Protection)
+  static Future<Map<String, dynamic>> scanPrescriptionImage({
+    required List<int> bytes,
+    required String filename,
+    Map<String, double>? cropBox,
+  }) async {
+    final request = http.MultipartRequest('POST', Uri.parse('$baseUrl/prescriptions/scan'));
+    request.files.add(http.MultipartFile.fromBytes('file', bytes, filename: filename));
+    if (cropBox != null) {
+      request.fields['crop_box'] = jsonEncode(cropBox);
+    }
+    final streamedRes = await request.send();
+    final response = await http.Response.fromStream(streamedRes);
+    return jsonDecode(response.body);
+  }
+
+  // Read Prescription PDF
+  static Future<Map<String, dynamic>> readPrescriptionPdf({
+    required List<int> bytes,
+    required String filename,
+  }) async {
+    final request = http.MultipartRequest('POST', Uri.parse('$baseUrl/prescriptions/pdf'));
+    request.files.add(http.MultipartFile.fromBytes('file', bytes, filename: filename));
+    final streamedRes = await request.send();
+    final response = await http.Response.fromStream(streamedRes);
+    return jsonDecode(response.body);
+  }
 }
+

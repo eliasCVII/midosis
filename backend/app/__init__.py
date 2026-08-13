@@ -1,7 +1,19 @@
 from flask import Flask
 from flask_cors import CORS
 from app.config import Config
-from app.models import db
+from app.models import (
+    db,
+    Usuario,
+    Paciente,
+    Cuidador,
+    Administrador,
+    Medicamento,
+    Receta,
+    DetalleReceta,
+    Calendario,
+    ItemCalendario,
+    Nota,
+)
 from app.routes import (
     health_bp,
     prescription_bp,
@@ -22,8 +34,9 @@ def create_app(config_class=Config):
     db.init_app(app)
 
     with app.app_context():
-        # Create database tables if they do not exist
+        # Ensure all models are registered in metadata and tables exist
         db.create_all()
+
 
     # Register blueprints
     app.register_blueprint(health_bp)
