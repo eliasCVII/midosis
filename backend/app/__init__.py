@@ -37,6 +37,15 @@ def create_app(config_class=Config):
         # Ensure all models are registered in metadata and tables exist
         db.create_all()
 
+        # Auto-seed CENABAST medications if table is empty
+        try:
+            if db.session.query(Medicamento).count() < 100:
+                from app.services.cenabast import CenabastService
+                CenabastService().import_excel_data()
+        except Exception:
+            pass
+
+
 
     # Register blueprints
     app.register_blueprint(health_bp)

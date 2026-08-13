@@ -4,6 +4,8 @@ import 'package:file_picker/file_picker.dart';
 import '../models/models.dart';
 import '../services/api_service.dart';
 import '../widgets/region_selection_dialog.dart';
+import '../widgets/cenabast_autocomplete_field.dart';
+
 
 class PrescriptionScreen extends StatefulWidget {
   const PrescriptionScreen({super.key});
@@ -298,6 +300,45 @@ class _PrescriptionScreenState extends State<PrescriptionScreen> {
     }
   }
 
+  Future<void> _confirmDeleteMedication(ItemCalendarioModel item) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Eliminar Medicamento'),
+        content: Text('¿Está seguro de que desea eliminar "${item.nombre}"?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Eliminar', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      final success = await ApiService.deleteItem('demo', item.idItemCalendario);
+      if (!mounted) return;
+      if (success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Medicamento "${item.nombre}" eliminado.'),
+            backgroundColor: Colors.red.shade700,
+          ),
+        );
+        _loadRegisteredMedications();
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No se pudo eliminar el medicamento.')),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
@@ -487,14 +528,9 @@ class _PrescriptionScreenState extends State<PrescriptionScreen> {
                               ],
                             ),
                             const SizedBox(height: 8),
-                            TextFormField(
+                            CenabastAutocompleteField(
                               controller: item.nombreCtrl,
-                              decoration: const InputDecoration(
-                                labelText: 'Nombre del remedio',
-                                prefixIcon: Icon(Icons.medication),
-                                border: OutlineInputBorder(),
-                                isDense: true,
-                              ),
+                              labelText: 'Nombre del medicamento',
                               validator: (val) => val == null || val.trim().isEmpty ? 'Ingrese el nombre del medicamento' : null,
                             ),
                             const SizedBox(height: 12),
@@ -627,6 +663,10 @@ class _PrescriptionScreenState extends State<PrescriptionScreen> {
                             ),
                             title: Text(item.nombre, style: const TextStyle(fontWeight: FontWeight.bold)),
                             subtitle: Text('Hora: ${item.horaInicio} • Cada ${item.frecuenciaHoras} hrs • Durante ${item.duracionDias} días'),
+                            trailing: IconButton(
+                              icon: const Icon(Icons.delete_outline, color: Colors.red),
+                              onPressed: () => _confirmDeleteMedication(item),
+                            ),
                           ),
                         );
                       },
@@ -636,3 +676,4 @@ class _PrescriptionScreenState extends State<PrescriptionScreen> {
     );
   }
 }
+
