@@ -300,6 +300,216 @@ class _PrescriptionScreenState extends State<PrescriptionScreen> {
     }
   }
 
+  bool _isTreatmentActive(ItemCalendarioModel item) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    
+    final startDate = item.fechaInicio != null
+        ? DateTime(item.fechaInicio!.year, item.fechaInicio!.month, item.fechaInicio!.day)
+        : today;
+    
+    final endDate = item.fechaTermino != null
+        ? DateTime(item.fechaTermino!.year, item.fechaTermino!.month, item.fechaTermino!.day, 23, 59, 59)
+        : startDate.add(Duration(days: item.duracionDias));
+
+    return !now.isAfter(endDate);
+  }
+
+  void _showModifyScheduleDialog(ItemCalendarioModel item) {
+    final ctrl = TextEditingController(text: item.horaInicio);
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Modificar Horario - ${item.nombre}'),
+        content: TextField(
+          controller: ctrl,
+          decoration: const InputDecoration(labelText: 'Hora de consumo (HH:MM)'),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
+          ElevatedButton(
+            onPressed: () async {
+              final ok = await ApiService.modifySchedule('demo', item.idItemCalendario, ctrl.text.trim());
+              if (!mounted) return;
+              Navigator.pop(ctx);
+              if (ok) _loadRegisteredMedications();
+            },
+            child: const Text('Guardar'),
+          )
+        ],
+      ),
+    );
+  }
+
+  void _showModifyFrequencyDialog(ItemCalendarioModel item) {
+    final ctrl = TextEditingController(text: item.frecuenciaHoras.toString());
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Modificar Frecuencia - ${item.nombre}'),
+        content: TextField(
+          controller: ctrl,
+          keyboardType: TextInputType.number,
+          decoration: const InputDecoration(labelText: 'Frecuencia (Horas, mayor a 0)'),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
+          ElevatedButton(
+            onPressed: () async {
+              final val = int.tryParse(ctrl.text.trim());
+              if (val != null && val > 0) {
+                final ok = await ApiService.modifyFrequency('demo', item.idItemCalendario, val);
+                if (!mounted) return;
+                Navigator.pop(ctx);
+                if (ok) _loadRegisteredMedications();
+              }
+            },
+            child: const Text('Guardar'),
+          )
+        ],
+      ),
+    );
+  }
+
+  void _showModifyDurationDialog(ItemCalendarioModel item) {
+    final ctrl = TextEditingController(text: item.duracionDias.toString());
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Modificar Duración - ${item.nombre}'),
+        content: TextField(
+          controller: ctrl,
+          keyboardType: TextInputType.number,
+          decoration: const InputDecoration(labelText: 'Duración (Días, mayor a 0)'),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
+          ElevatedButton(
+            onPressed: () async {
+              final val = int.tryParse(ctrl.text.trim());
+              if (val != null && val > 0) {
+                final ok = await ApiService.modifyDuration('demo', item.idItemCalendario, val);
+                if (!mounted) return;
+                Navigator.pop(ctx);
+                if (ok) _loadRegisteredMedications();
+              }
+            },
+            child: const Text('Guardar'),
+          )
+        ],
+      ),
+    );
+  }
+
+  void _showMedicationDetailPopUp(ItemCalendarioModel item) {
+    final isActive = _isTreatmentActive(item);
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Row(
+            children: [
+              const Icon(Icons.medication, color: Color(0xFF0284C7), size: 28),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  item.nombre,
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
+                ),
+              ),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Chip(
+                  avatar: Icon(isActive ? Icons.check_circle : Icons.event_available, color: Colors.white, size: 16),
+                  label: Text(
+                    isActive ? 'Tratamiento En Curso' : 'Tratamiento Finalizado',
+                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                  ),
+                  backgroundColor: isActive ? const Color(0xFF0284C7) : Colors.grey.shade600,
+                ),
+                const SizedBox(height: 8),
+                const Divider(),
+                const Text('⏱️ Horario y Frecuencia:', style: TextStyle(fontWeight: FontWeight.bold)),
+                Text('Hora inicio: ${item.horaInicio} (Cada ${item.frecuenciaHoras} horas)'),
+                const SizedBox(height: 10),
+                const Text('📅 Duración del Tratamiento:', style: TextStyle(fontWeight: FontWeight.bold)),
+                Text('${item.duracionDias} días ${item.fechaTermino != null ? "(Término: ${item.fechaTermino!.day}/${item.fechaTermino!.month}/${item.fechaTermino!.year})" : ""}'),
+                const SizedBox(height: 10),
+                const Text('📖 Descripción / Recomendaciones:', style: TextStyle(fontWeight: FontWeight.bold)),
+                Text(item.descripcion.isNotEmpty ? item.descripcion : 'Sin recomendaciones específicas'),
+                const SizedBox(height: 10),
+                const Text('⚠️ Efectos Secundarios:', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.amber)),
+                Text(item.efectosSecundarios.isNotEmpty ? item.efectosSecundarios : 'No se registraron efectos secundarios'),
+              ],
+            ),
+          ),
+          actionsAlignment: MainAxisAlignment.center,
+          actions: [
+            Column(
+              children: [
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  alignment: WrapAlignment.center,
+                  children: [
+                    ElevatedButton.icon(
+                      icon: const Icon(Icons.access_time, size: 16),
+                      label: const Text('Modificar Horario'),
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        _showModifyScheduleDialog(item);
+                      },
+                    ),
+                    ElevatedButton.icon(
+                      icon: const Icon(Icons.repeat, size: 16),
+                      label: const Text('Modificar Frecuencia'),
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        _showModifyFrequencyDialog(item);
+                      },
+                    ),
+                    ElevatedButton.icon(
+                      icon: const Icon(Icons.date_range, size: 16),
+                      label: const Text('Modificar Duración'),
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        _showModifyDurationDialog(item);
+                      },
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    TextButton.icon(
+                      icon: const Icon(Icons.delete, color: Colors.red),
+                      label: const Text('Eliminar', style: TextStyle(color: Colors.red)),
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        _confirmDeleteMedication(item);
+                      },
+                    ),
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      child: const Text('Cerrar'),
+                    ),
+                  ],
+                )
+              ],
+            )
+          ],
+        );
+      },
+    );
+  }
+
   Future<void> _confirmDeleteMedication(ItemCalendarioModel item) async {
     final confirm = await showDialog<bool>(
       context: context,
@@ -653,16 +863,49 @@ class _PrescriptionScreenState extends State<PrescriptionScreen> {
                       itemCount: _registeredMedications.length,
                       itemBuilder: (ctx, idx) {
                         final item = _registeredMedications[idx];
+                        final isActive = _isTreatmentActive(item);
+
                         return Card(
                           margin: const EdgeInsets.only(bottom: 8),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                           child: ListTile(
-                            leading: const CircleAvatar(
-                              backgroundColor: Color(0xFFE0F2FE),
-                              child: Icon(Icons.medical_services, color: Color(0xFF0284C7)),
+                            onTap: () => _showMedicationDetailPopUp(item),
+                            leading: CircleAvatar(
+                              backgroundColor: isActive ? const Color(0xFFE0F2FE) : Colors.grey.shade200,
+                              child: Icon(Icons.alarm, color: isActive ? const Color(0xFF0284C7) : Colors.grey.shade600),
                             ),
-                            title: Text(item.nombre, style: const TextStyle(fontWeight: FontWeight.bold)),
-                            subtitle: Text('Hora: ${item.horaInicio} • Cada ${item.frecuenciaHoras} hrs • Durante ${item.duracionDias} días'),
+                            title: Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    item.nombre,
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: isActive ? const Color(0xFF0F172A) : Colors.grey.shade700,
+                                    ),
+                                  ),
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: isActive ? const Color(0xFFE0F2FE) : Colors.grey.shade200,
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Text(
+                                    isActive ? 'En curso' : 'Finalizado',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                      color: isActive ? const Color(0xFF0284C7) : Colors.grey.shade700,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            subtitle: Text(
+                              'Hora: ${item.horaInicio} (c/${item.frecuenciaHoras}h) • ${item.duracionDias} días',
+                              style: const TextStyle(fontSize: 13),
+                            ),
                             trailing: IconButton(
                               icon: const Icon(Icons.delete_outline, color: Colors.red),
                               onPressed: () => _confirmDeleteMedication(item),

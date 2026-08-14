@@ -609,7 +609,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
                           'Horario(s) hoy: ${daySlots.isNotEmpty ? daySlots.join(", ") : item.horaInicio} (c/${item.frecuenciaHoras}h) • ${item.duracionDias} días',
                           style: const TextStyle(fontSize: 13),
                         ),
-                        trailing: const Icon(Icons.info_outline, color: Color(0xFF0284C7)),
+                        trailing: IconButton(
+                          icon: const Icon(Icons.delete_outline, color: Colors.red),
+                          onPressed: () => _deleteItem(item),
+                        ),
                       ),
                     );
                   },
