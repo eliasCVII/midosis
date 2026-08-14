@@ -11,11 +11,17 @@ class MedicationController:
         if not query_str:
             return MedicationController.get_all_medications()
         
-        matches = Medicamento.query.filter(Medicamento.nombre.ilike(f"%{query_str}%")).all()
-        if not matches:
-            return {"error": "Datos no existentes: No se encontraron medicamentos con esa búsqueda"}, 404
-        
+        matches = Medicamento.query.filter(
+            Medicamento.nombre.ilike(f"%{query_str}%"),
+            ~Medicamento.nombre.ilike("%BORRA%"),
+            ~Medicamento.nombre.ilike("%MARCADO%"),
+            ~Medicamento.nombre.ilike("%DESCONTINUA%"),
+            ~Medicamento.nombre.ilike("%OBSOLET%"),
+            ~Medicamento.nombre.ilike("%NO USAR%")
+        ).limit(20).all()
         return {"status": "success", "medicamentos": [m.to_dict() for m in matches]}, 200
+
+
 
     @staticmethod
     def update_medication_info(id_medicamento, data):

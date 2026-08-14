@@ -43,11 +43,15 @@ class CenabastService:
             if not tipo_prod or str(tipo_prod).strip() != "Fármacos" or not nombre_gen:
                 continue
 
-            clasificacion_interna = row[6] if len(row) > 6 and row[6] else "Medicamento sin clasificación específica"
+            nombre_upper = str(nombre_gen).strip().upper()
+            if any(term in nombre_upper for term in ["BORRA", "MARCADO", "DESCONTINUA", "OBSOLET", "CANCELAD", "NO USAR"]):
+                continue
+
             med_id = f"cenabast_{codigo_gen}"
             nombre_clean = str(nombre_gen).strip()[:150]
-            desc_clean = str(desc_gen).strip() if desc_gen else "Medicamento del Maestro CENABAST"
-            efectos_clean = f"Clasificación CENABAST: {clasificacion_interna}"
+            desc_clean = "Información del medicamento"
+            efectos_clean = "No registrados"
+
 
             med = db.session.get(Medicamento, med_id)
             if not med:
@@ -65,7 +69,13 @@ class CenabastService:
                 med.efectos_secundarios = efectos_clean
                 updated_count += 1
 
+        # Purge any obsolete or marked-for-deletion items from the database
+        for term in ["BORRA", "MARCADO", "DESCONTINUA", "OBSOLET", "CANCELAD", "NO USAR"]:
+            Medicamento.query.filter(Medicamento.nombre.ilike(f"%{term}%")).delete(synchronize_session=False)
+
+
         db.session.commit()
+
         return {
             "status": "success",
             "message": f"Importación completada: {imported_count} nuevos medicamentos agregados, {updated_count} actualizados.",

@@ -31,20 +31,62 @@ class _CalendarScreenState extends State<CalendarScreen> {
     });
   }
 
-  // Check if medication intake is active on a specific day
-  bool _isIntakeActiveOnDay(ItemCalendarioModel item, DateTime day) {
+  // Calculate exact intake time slots for a specific calendar day (handles cross-midnight shifts and multi-day frequencies)
+  List<String> _getIntakeSlotsForDay(ItemCalendarioModel item, DateTime day) {
     final targetDate = DateTime(day.year, day.month, day.day);
+    
+    final fullStart = item.fechaInicio ?? targetDate;
+    final startDateOnly = DateTime(fullStart.year, fullStart.month, fullStart.day);
+    
+    final endDate = item.fechaTermino != null
+        ? DateTime(item.fechaTermino!.year, item.fechaTermino!.month, item.fechaTermino!.day, 23, 59, 59)
+        : startDateOnly.add(Duration(days: item.duracionDias));
+
+    if (targetDate.isBefore(startDateOnly) || targetDate.isAfter(DateTime(endDate.year, endDate.month, endDate.day))) {
+      return [];
+    }
+
+    final List<String> slots = [];
+    final freqHours = item.frecuenciaHoras <= 0 ? 8 : item.frecuenciaHoras;
+    DateTime currentIntake = fullStart;
+
+    while (!currentIntake.isAfter(endDate)) {
+      final intakeDate = DateTime(currentIntake.year, currentIntake.month, currentIntake.day);
+      if (DateUtils.isSameDay(intakeDate, targetDate)) {
+        final hourStr = currentIntake.hour.toString().padLeft(2, '0');
+        final minStr = currentIntake.minute.toString().padLeft(2, '0');
+        final slotStr = '$hourStr:$minStr';
+        if (!slots.contains(slotStr)) {
+          slots.add(slotStr);
+        }
+      } else if (intakeDate.isAfter(targetDate)) {
+        break;
+      }
+      currentIntake = currentIntake.add(Duration(hours: freqHours));
+    }
+
+    return slots;
+  }
+
+  // Check if treatment is currently active or completed
+  bool _isTreatmentActive(ItemCalendarioModel item) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
     
     final startDate = item.fechaInicio != null
         ? DateTime(item.fechaInicio!.year, item.fechaInicio!.month, item.fechaInicio!.day)
-        : targetDate;
+        : today;
     
     final endDate = item.fechaTermino != null
-        ? DateTime(item.fechaTermino!.year, item.fechaTermino!.month, item.fechaTermino!.day)
+        ? DateTime(item.fechaTermino!.year, item.fechaTermino!.month, item.fechaTermino!.day, 23, 59, 59)
         : startDate.add(Duration(days: item.duracionDias));
 
-    return (targetDate.isAfter(startDate.subtract(const Duration(days: 1))) &&
-            targetDate.isBefore(endDate.add(const Duration(days: 1))));
+    return !now.isAfter(endDate);
+  }
+
+  // Check if medication intake is active on a specific day based on exact FrecuenciaHoras interval
+  bool _isIntakeActiveOnDay(ItemCalendarioModel item, DateTime day) {
+    return _getIntakeSlotsForDay(item, day).isNotEmpty;
   }
 
   // Get active items scheduled for a specific day
@@ -73,6 +115,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
   // POPUP DETAIL DIALOG WITH EDIT BUTTONS
   void _showMedicationDetailPopUp(ItemCalendarioModel item) {
+    final isActive = _isTreatmentActive(item);
     showDialog(
       context: context,
       builder: (ctx) {
@@ -95,9 +138,18 @@ class _CalendarScreenState extends State<CalendarScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
+                Chip(
+                  avatar: Icon(isActive ? Icons.check_circle : Icons.event_available, color: Colors.white, size: 16),
+                  label: Text(
+                    isActive ? 'Tratamiento En Curso' : 'Tratamiento Finalizado',
+                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                  ),
+                  backgroundColor: isActive ? const Color(0xFF0284C7) : Colors.grey.shade600,
+                ),
+                const SizedBox(height: 8),
                 const Divider(),
                 const Text('⏱️ Horario y Frecuencia:', style: TextStyle(fontWeight: FontWeight.bold)),
-                Text('Hora de consumo: ${item.horaInicio} (Cada ${item.frecuenciaHoras} horas)'),
+                Text('Hora inicio: ${item.horaInicio} (Cada ${item.frecuenciaHoras} horas)'),
                 const SizedBox(height: 10),
                 const Text('📅 Duración del Tratamiento:', style: TextStyle(fontWeight: FontWeight.bold)),
                 Text('${item.duracionDias} días ${item.fechaTermino != null ? "(Término: ${item.fechaTermino!.day}/${item.fechaTermino!.month}/${item.fechaTermino!.year})" : ""}'),
@@ -513,18 +565,54 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   itemCount: selectedDayItems.length,
                   itemBuilder: (ctx, idx) {
                     final item = selectedDayItems[idx];
+                    final daySlots = _getIntakeSlotsForDay(item, _selectedDay);
+                    final isActive = _isTreatmentActive(item);
+
                     return Card(
                       margin: const EdgeInsets.only(bottom: 8),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       child: ListTile(
                         onTap: () => _showMedicationDetailPopUp(item),
-                        leading: const CircleAvatar(
-                          backgroundColor: Color(0xFFE0F2FE),
-                          child: Icon(Icons.alarm, color: Color(0xFF0284C7)),
+                        leading: CircleAvatar(
+                          backgroundColor: isActive ? const Color(0xFFE0F2FE) : Colors.grey.shade200,
+                          child: Icon(Icons.alarm, color: isActive ? const Color(0xFF0284C7) : Colors.grey.shade600),
                         ),
-                        title: Text(item.nombre, style: const TextStyle(fontWeight: FontWeight.bold)),
-                        subtitle: Text('Hora: ${item.horaInicio} (c/${item.frecuenciaHoras}h) • Duración: ${item.duracionDias} días'),
-                        trailing: const Icon(Icons.info_outline, color: Color(0xFF0284C7)),
+                        title: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                item.nombre,
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: isActive ? const Color(0xFF0F172A) : Colors.grey.shade700,
+                                ),
+                              ),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: isActive ? const Color(0xFFE0F2FE) : Colors.grey.shade200,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                isActive ? 'En curso' : 'Finalizado',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: isActive ? const Color(0xFF0284C7) : Colors.grey.shade700,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        subtitle: Text(
+                          'Horario(s) hoy: ${daySlots.isNotEmpty ? daySlots.join(", ") : item.horaInicio} (c/${item.frecuenciaHoras}h) • ${item.duracionDias} días',
+                          style: const TextStyle(fontSize: 13),
+                        ),
+                        trailing: IconButton(
+                          icon: const Icon(Icons.delete_outline, color: Colors.red),
+                          onPressed: () => _deleteItem(item),
+                        ),
                       ),
                     );
                   },
