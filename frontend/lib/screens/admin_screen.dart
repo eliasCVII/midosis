@@ -13,8 +13,8 @@ class _AdminScreenState extends State<AdminScreen> {
   bool _isLoggedIn = false;
   bool _isLoading = false;
 
-  final TextEditingController _emailCtrl = TextEditingController(text: 'admin@midosis.cl');
-  final TextEditingController _passCtrl = TextEditingController(text: 'admin123');
+  final TextEditingController _emailCtrl = TextEditingController();
+  final TextEditingController _passCtrl = TextEditingController();
   final TextEditingController _searchCtrl = TextEditingController();
 
   List<MedicamentoModel> _medications = [];
