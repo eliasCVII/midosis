@@ -99,21 +99,10 @@ class PrescriptionParser:
                 h, m = int(hora_match.group(1)), int(hora_match.group(2))
                 hora_inicio = f"{h:02d}:{m:02d}"
 
-            # Extract drug name
-            nombre_med = ""
+            # Extract drug name: ALWAYS preserve exact text extracted from OCR/PDF
             first_line = re.sub(r'^\d+[\.\-\)]\s*', '', block[0]).strip()
-            
-            try:
-                words = [w for w in re.split(r'\s+', first_line) if len(w) >= 3]
-                if words:
-                    match = Medicamento.query.filter(Medicamento.nombre.ilike(f"%{words[0]}%")).first()
-                    if match:
-                        nombre_med = match.nombre
-            except Exception:
-                pass
+            nombre_med = first_line if first_line else "Medicamento Detectado"
 
-            if not nombre_med:
-                nombre_med = first_line if first_line else "Medicamento Detectado"
 
             results.append({
                 "Nombre": nombre_med,

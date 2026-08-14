@@ -43,6 +43,10 @@ class CenabastService:
             if not tipo_prod or str(tipo_prod).strip() != "Fármacos" or not nombre_gen:
                 continue
 
+            nombre_upper = str(nombre_gen).strip().upper()
+            if any(term in nombre_upper for term in ["BORRAR", "MARCADO PARA BORRAR", "DESCONTINUADO", "OBSOLETO", "CANCELADO", "NO USAR"]):
+                continue
+
             med_id = f"cenabast_{codigo_gen}"
             nombre_clean = str(nombre_gen).strip()[:150]
             desc_clean = "Información del medicamento"
@@ -65,7 +69,12 @@ class CenabastService:
                 med.efectos_secundarios = efectos_clean
                 updated_count += 1
 
+        # Purge any obsolete or marked-for-deletion items from the database
+        for term in ["BORRAR", "DESCONTINUADO", "OBSOLETO", "CANCELADO", "NO USAR"]:
+            Medicamento.query.filter(Medicamento.nombre.ilike(f"%{term}%")).delete(synchronize_session=False)
+
         db.session.commit()
+
         return {
             "status": "success",
             "message": f"Importación completada: {imported_count} nuevos medicamentos agregados, {updated_count} actualizados.",

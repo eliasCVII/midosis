@@ -131,6 +131,17 @@ class ApiService {
     return [];
   }
 
+  // Re-import / Sync CENABAST Excel catalog (Admin)
+  static Future<Map<String, dynamic>> importCenabast() async {
+    try {
+      final response = await http.post(Uri.parse('$baseUrl/medications/import-cenabast'));
+      return jsonDecode(response.body);
+    } catch (e) {
+      return {'error': e.toString()};
+    }
+  }
+
+
   // Add Note
   static Future<bool> addNote({required String pacienteId, String? medicamentoId, required String descripcion}) async {
     final response = await http.post(
@@ -215,5 +226,28 @@ class ApiService {
     final response = await http.Response.fromStream(streamedRes);
     return jsonDecode(response.body);
   }
+
+  // Update Medication Info (Admin FR-A02/FR-A03)
+  static Future<bool> updateMedicationInfo({
+    required String idMedicamento,
+    required String descripcion,
+    required String efectosSecundarios,
+  }) async {
+    try {
+      final response = await http.put(
+        Uri.parse('$baseUrl/medications/$idMedicamento'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'Descripcion': descripcion,
+          'EfectosSecundarios': efectosSecundarios,
+        }),
+      );
+      return response.statusCode == 200;
+    } catch (e) {
+      debugPrint('Error updating medication info: $e');
+      return false;
+    }
+  }
 }
+
 

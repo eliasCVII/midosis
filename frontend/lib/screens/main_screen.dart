@@ -5,6 +5,8 @@ import 'medication_info_screen.dart';
 import 'notes_screen.dart';
 import 'sync_screen.dart';
 
+import 'admin_screen.dart';
+
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
 
@@ -14,6 +16,7 @@ class MainScreen extends StatefulWidget {
 
 class _MainScreenState extends State<MainScreen> {
   int _currentIndex = 0;
+  bool _showAdminScreen = false;
 
   @override
   Widget build(BuildContext context) {
@@ -40,14 +43,30 @@ class _MainScreenState extends State<MainScreen> {
             const SizedBox(width: 10),
             const Text(
               'MiDosis',
-              style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1),
+              style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1, color: Colors.white),
             ),
           ],
         ),
+        actions: [
+          IconButton(
+            icon: Icon(
+              _showAdminScreen ? Icons.person : Icons.admin_panel_settings,
+              color: Colors.white,
+            ),
+            tooltip: _showAdminScreen ? 'Modo Paciente' : 'Modo Administrador',
+            onPressed: () {
+              setState(() {
+                _showAdminScreen = !_showAdminScreen;
+              });
+            },
+          ),
+        ],
         backgroundColor: const Color(0xFF0284C7),
         elevation: 2,
       ),
-      body: SafeArea(child: pages[_currentIndex]),
+      body: SafeArea(
+        child: _showAdminScreen ? const AdminScreen() : pages[_currentIndex],
+      ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _currentIndex,
         onDestinationSelected: (idx) => setState(() => _currentIndex = idx),
