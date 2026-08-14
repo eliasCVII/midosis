@@ -44,7 +44,7 @@ class CenabastService:
                 continue
 
             nombre_upper = str(nombre_gen).strip().upper()
-            if any(term in nombre_upper for term in ["BORRAR", "MARCADO PARA BORRAR", "DESCONTINUADO", "OBSOLETO", "CANCELADO", "NO USAR"]):
+            if any(term in nombre_upper for term in ["BORRA", "MARCADO", "DESCONTINUA", "OBSOLET", "CANCELAD", "NO USAR"]):
                 continue
 
             med_id = f"cenabast_{codigo_gen}"
@@ -70,8 +70,9 @@ class CenabastService:
                 updated_count += 1
 
         # Purge any obsolete or marked-for-deletion items from the database
-        for term in ["BORRAR", "DESCONTINUADO", "OBSOLETO", "CANCELADO", "NO USAR"]:
+        for term in ["BORRA", "MARCADO", "DESCONTINUA", "OBSOLET", "CANCELAD", "NO USAR"]:
             Medicamento.query.filter(Medicamento.nombre.ilike(f"%{term}%")).delete(synchronize_session=False)
+
 
         db.session.commit()
 

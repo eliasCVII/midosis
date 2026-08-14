@@ -13,9 +13,10 @@ class MedicationController:
         
         matches = Medicamento.query.filter(
             Medicamento.nombre.ilike(f"%{query_str}%"),
-            ~Medicamento.nombre.ilike("%BORRAR%"),
-            ~Medicamento.nombre.ilike("%DESCONTINUADO%"),
-            ~Medicamento.nombre.ilike("%OBSOLETO%"),
+            ~Medicamento.nombre.ilike("%BORRA%"),
+            ~Medicamento.nombre.ilike("%MARCADO%"),
+            ~Medicamento.nombre.ilike("%DESCONTINUA%"),
+            ~Medicamento.nombre.ilike("%OBSOLET%"),
             ~Medicamento.nombre.ilike("%NO USAR%")
         ).limit(20).all()
         return {"status": "success", "medicamentos": [m.to_dict() for m in matches]}, 200
