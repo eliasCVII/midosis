@@ -43,11 +43,11 @@ class CenabastService:
             if not tipo_prod or str(tipo_prod).strip() != "Fármacos" or not nombre_gen:
                 continue
 
-            clasificacion_interna = row[6] if len(row) > 6 and row[6] else "Medicamento sin clasificación específica"
             med_id = f"cenabast_{codigo_gen}"
             nombre_clean = str(nombre_gen).strip()[:150]
-            desc_clean = str(desc_gen).strip() if desc_gen else "Medicamento del Maestro CENABAST"
-            efectos_clean = f"Clasificación CENABAST: {clasificacion_interna}"
+            desc_clean = "Información del medicamento"
+            efectos_clean = "No registrados"
+
 
             med = db.session.get(Medicamento, med_id)
             if not med:
