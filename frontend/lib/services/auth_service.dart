@@ -20,12 +20,23 @@ class AuthService {
 
   static final ValueNotifier<UsuarioModel?> currentUserNotifier = ValueNotifier<UsuarioModel?>(null);
   static final ValueNotifier<PacienteModel?> currentPacienteNotifier = ValueNotifier<PacienteModel?>(null);
+  static final ValueNotifier<String?> linkedPatientIdNotifier = ValueNotifier<String?>(null);
+  static final ValueNotifier<String?> linkedPatientNameNotifier = ValueNotifier<String?>(null);
 
   static UsuarioModel? get currentUser => currentUserNotifier.value;
   static PacienteModel? get currentPaciente => currentPacienteNotifier.value;
   static bool get isAuthenticated => currentUserNotifier.value != null;
 
-  static String get currentPacienteId => currentPacienteNotifier.value?.idPaciente ?? 'demo';
+  static bool get isCaregiver => currentUser?.rol == 'cuidador';
+  static bool get isPatient => currentUser?.rol == 'paciente';
+  static bool get isAdmin => currentUser?.rol == 'administrador';
+
+  static String get currentPacienteId {
+    if (isCaregiver && linkedPatientIdNotifier.value != null) {
+      return linkedPatientIdNotifier.value!;
+    }
+    return currentPacienteNotifier.value?.idPaciente ?? 'demo';
+  }
 
   /// Sign in using Google Account
   static Future<Map<String, dynamic>> signInWithGoogle({String role = 'paciente'}) async {
@@ -70,6 +81,43 @@ class AuthService {
       name: 'Administrador CENABAST',
       role: 'administrador',
     );
+  }
+
+  /// Switch active role between 'paciente' and 'cuidador'
+  static Future<Map<String, dynamic>> switchRole(String newRole) async {
+    final user = currentUser;
+    if (user == null) {
+      return {'status': 'error', 'message': 'No hay sesión activa'};
+    }
+
+    try {
+      final response = await http.post(
+        Uri.parse('${ApiService.baseUrl}/auth/switch-role'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'id_usuario': user.idUsuario,
+          'email': user.correo,
+          'role': newRole,
+        }),
+      );
+
+      final data = jsonDecode(response.body);
+      if (response.statusCode == 200 && data['status'] == 'success') {
+        final updatedUser = UsuarioModel.fromJson(data['usuario'], photoUrl: user.photoUrl);
+        currentUserNotifier.value = updatedUser;
+
+        if (data['paciente'] != null) {
+          currentPacienteNotifier.value = PacienteModel.fromJson(data['paciente']);
+        }
+
+        return {'status': 'success', 'user': updatedUser};
+      } else {
+        return {'status': 'error', 'message': data['error'] ?? 'Error al cambiar rol'};
+      }
+    } catch (e) {
+      debugPrint('Switch Role Error: $e');
+      return {'status': 'error', 'message': 'Error de conexión: $e'};
+    }
   }
 
   static Future<Map<String, dynamic>> _syncWithBackend({
@@ -119,5 +167,7 @@ class AuthService {
     } catch (_) {}
     currentUserNotifier.value = null;
     currentPacienteNotifier.value = null;
+    linkedPatientIdNotifier.value = null;
+    linkedPatientNameNotifier.value = null;
   }
 }

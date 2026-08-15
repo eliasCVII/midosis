@@ -28,58 +28,62 @@ class AuthController:
             )
             db.session.add(user)
             db.session.flush()
+        else:
+            # Update active role and name if needed
+            user.rol = role
+            if name and name != "Usuario Google":
+                user.nombre = name
 
         paciente_dict = None
         cuidador_dict = None
         admin_dict = None
 
-        if user.rol == "paciente":
-            paciente = Paciente.query.filter_by(id_usuario=user.id_usuario).first()
-            if not paciente:
-                raw_code = str(uuid.uuid4()).replace("-", "").upper()
-                sync_code = f"{raw_code[:3]}-{raw_code[3:6]}"
-                paciente_id = f"paciente_{uuid.uuid4().hex[:12]}"
-                paciente = Paciente(
-                    id_paciente=paciente_id,
-                    id_usuario=user.id_usuario,
-                    codigo_sincronizacion=sync_code
-                )
-                db.session.add(paciente)
-                db.session.flush()
+        # Always provision Paciente profile and Calendar if needed
+        paciente = Paciente.query.filter_by(id_usuario=user.id_usuario).first()
+        if not paciente:
+            raw_code = str(uuid.uuid4()).replace("-", "").upper()
+            sync_code = f"{raw_code[:3]}-{raw_code[3:6]}"
+            paciente_id = f"paciente_{uuid.uuid4().hex[:12]}"
+            paciente = Paciente(
+                id_paciente=paciente_id,
+                id_usuario=user.id_usuario,
+                codigo_sincronizacion=sync_code
+            )
+            db.session.add(paciente)
+            db.session.flush()
 
-                # Ensure Calendario exists for this paciente
+            # Ensure Calendario exists for this paciente
+            cal_id = f"cal_{uuid.uuid4().hex[:12]}"
+            calendario = Calendario(
+                id_calendario=cal_id,
+                id_paciente=paciente.id_paciente
+            )
+            db.session.add(calendario)
+        else:
+            cal = Calendario.query.filter_by(id_paciente=paciente.id_paciente).first()
+            if not cal:
                 cal_id = f"cal_{uuid.uuid4().hex[:12]}"
-                calendario = Calendario(
+                cal = Calendario(
                     id_calendario=cal_id,
                     id_paciente=paciente.id_paciente
                 )
-                db.session.add(calendario)
-            else:
-                # Ensure calendar exists even for existing patient
-                cal = Calendario.query.filter_by(id_paciente=paciente.id_paciente).first()
-                if not cal:
-                    cal_id = f"cal_{uuid.uuid4().hex[:12]}"
-                    cal = Calendario(
-                        id_calendario=cal_id,
-                        id_paciente=paciente.id_paciente
-                    )
-                    db.session.add(cal)
+                db.session.add(cal)
 
-            paciente_dict = paciente.to_dict()
+        paciente_dict = paciente.to_dict()
 
-        elif user.rol == "cuidador":
-            cuidador = Cuidador.query.filter_by(id_usuario=user.id_usuario).first()
-            if not cuidador:
-                cuidador_id = f"cuidador_{uuid.uuid4().hex[:12]}"
-                cuidador = Cuidador(
-                    id_cuidador=cuidador_id,
-                    id_usuario=user.id_usuario
-                )
-                db.session.add(cuidador)
-                db.session.flush()
-            cuidador_dict = cuidador.to_dict()
+        # Always provision Cuidador profile if needed
+        cuidador = Cuidador.query.filter_by(id_usuario=user.id_usuario).first()
+        if not cuidador:
+            cuidador_id = f"cuidador_{uuid.uuid4().hex[:12]}"
+            cuidador = Cuidador(
+                id_cuidador=cuidador_id,
+                id_usuario=user.id_usuario
+            )
+            db.session.add(cuidador)
+            db.session.flush()
+        cuidador_dict = cuidador.to_dict()
 
-        elif user.rol == "administrador":
+        if user.rol == "administrador":
             admin = Administrador.query.filter_by(id_usuario=user.id_usuario).first()
             if not admin:
                 admin_id = f"admin_{uuid.uuid4().hex[:12]}"
@@ -101,6 +105,75 @@ class AuthController:
             "paciente": paciente_dict,
             "cuidador": cuidador_dict,
             "administrador": admin_dict
+        }, 200
+
+    @staticmethod
+    def switch_role(data):
+        user_id = data.get("id_usuario") or data.get("idUsuario")
+        email = data.get("email") or data.get("correo")
+        new_role = data.get("role") or data.get("new_role") or data.get("rol")
+
+        if not new_role or new_role.strip().lower() not in ["paciente", "cuidador", "administrador"]:
+            return {"error": "Rol inválido"}, 400
+
+        new_role = new_role.strip().lower()
+        user = None
+        if user_id:
+            user = db.session.get(Usuario, user_id)
+        elif email:
+            user = Usuario.query.filter_by(correo=email.strip().lower()).first()
+
+        if not user:
+            return {"error": "Usuario no encontrado"}, 404
+
+        user.rol = new_role
+
+        paciente = Paciente.query.filter_by(id_usuario=user.id_usuario).first()
+        if not paciente:
+            raw_code = str(uuid.uuid4()).replace("-", "").upper()
+            sync_code = f"{raw_code[:3]}-{raw_code[3:6]}"
+            paciente_id = f"paciente_{uuid.uuid4().hex[:12]}"
+            paciente = Paciente(
+                id_paciente=paciente_id,
+                id_usuario=user.id_usuario,
+                codigo_sincronizacion=sync_code
+            )
+            db.session.add(paciente)
+            db.session.flush()
+
+            cal_id = f"cal_{uuid.uuid4().hex[:12]}"
+            calendario = Calendario(
+                id_calendario=cal_id,
+                id_paciente=paciente.id_paciente
+            )
+            db.session.add(calendario)
+        else:
+            cal = Calendario.query.filter_by(id_paciente=paciente.id_paciente).first()
+            if not cal:
+                cal_id = f"cal_{uuid.uuid4().hex[:12]}"
+                cal = Calendario(
+                    id_calendario=cal_id,
+                    id_paciente=paciente.id_paciente
+                )
+                db.session.add(cal)
+
+        cuidador = Cuidador.query.filter_by(id_usuario=user.id_usuario).first()
+        if not cuidador:
+            cuidador_id = f"cuidador_{uuid.uuid4().hex[:12]}"
+            cuidador = Cuidador(
+                id_cuidador=cuidador_id,
+                id_usuario=user.id_usuario
+            )
+            db.session.add(cuidador)
+
+        db.session.commit()
+
+        return {
+            "status": "success",
+            "message": f"Rol cambiado a {new_role}",
+            "usuario": user.to_dict(),
+            "paciente": paciente.to_dict() if paciente else None,
+            "cuidador": cuidador.to_dict() if cuidador else None
         }, 200
 
     @staticmethod

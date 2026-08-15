@@ -69,48 +69,125 @@ class _MainScreenState extends State<MainScreen> {
                     onPressed: () => AuthDialog.show(context),
                   ),
                 )
-              else
+              else ...[
+                if (!isAdmin) ...[
+                  // Direct Zero-Friction Navbar Role Toggle
+                  Container(
+                    margin: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
+                    decoration: BoxDecoration(
+                      color: const Color(0x33000000),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: Colors.white24),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        InkWell(
+                          onTap: user.rol == 'paciente'
+                              ? null
+                              : () => AuthService.switchRole('paciente'),
+                          borderRadius: const BorderRadius.horizontal(left: Radius.circular(20)),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                            decoration: BoxDecoration(
+                              color: user.rol == 'paciente' ? Colors.white : Colors.transparent,
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.person,
+                                  size: 14,
+                                  color: user.rol == 'paciente' ? const Color(0xFF0284C7) : Colors.white70,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'Paciente',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: user.rol == 'paciente' ? FontWeight.bold : FontWeight.normal,
+                                    color: user.rol == 'paciente' ? const Color(0xFF0284C7) : Colors.white70,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        InkWell(
+                          onTap: user.rol == 'cuidador'
+                              ? null
+                              : () => AuthService.switchRole('cuidador'),
+                          borderRadius: const BorderRadius.horizontal(right: Radius.circular(20)),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                            decoration: BoxDecoration(
+                              color: user.rol == 'cuidador' ? const Color(0xFF10B981) : Colors.transparent,
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.shield_outlined,
+                                  size: 14,
+                                  color: user.rol == 'cuidador' ? Colors.white : Colors.white70,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'Cuidador',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: user.rol == 'cuidador' ? FontWeight.bold : FontWeight.normal,
+                                    color: user.rol == 'cuidador' ? Colors.white : Colors.white70,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ] else ...[
+                  Container(
+                    margin: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.amber.shade400,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Colors.amber.shade600),
+                    ),
+                    child: const Row(
+                      children: [
+                        Icon(Icons.admin_panel_settings, size: 14, color: Colors.black87),
+                        SizedBox(width: 4),
+                        Text(
+                          'ADMIN',
+                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.black87),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+                // Profile Avatar / Menu
                 InkWell(
                   onTap: () => AuthDialog.show(context),
                   borderRadius: BorderRadius.circular(20),
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    child: Row(
-                      children: [
-                        CircleAvatar(
-                          radius: 16,
-                          backgroundColor: Colors.white,
-                          backgroundImage: user.photoUrl != null ? NetworkImage(user.photoUrl!) : null,
-                          child: user.photoUrl == null
-                              ? Text(
-                                  user.nombre.isNotEmpty ? user.nombre[0].toUpperCase() : 'U',
-                                  style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF0284C7), fontSize: 13),
-                                )
-                              : null,
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          user.nombre.split(' ').first,
-                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13),
-                        ),
-                        if (isAdmin) ...[
-                          const SizedBox(width: 6),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: Colors.amber.shade400,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: const Text(
-                              'ADMIN',
-                              style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.black87),
-                            ),
-                          ),
-                        ],
-                      ],
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                    child: CircleAvatar(
+                      radius: 16,
+                      backgroundColor: Colors.white,
+                      backgroundImage: user.photoUrl != null ? NetworkImage(user.photoUrl!) : null,
+                      child: user.photoUrl == null
+                          ? Text(
+                              user.nombre.isNotEmpty ? user.nombre[0].toUpperCase() : 'U',
+                              style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF0284C7), fontSize: 13),
+                            )
+                          : null,
                     ),
                   ),
                 ),
+              ],
               const SizedBox(width: 8),
             ],
             backgroundColor: const Color(0xFF0284C7),

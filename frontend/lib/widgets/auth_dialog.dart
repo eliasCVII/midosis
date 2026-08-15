@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../models/models.dart';
 import '../services/auth_service.dart';
 
@@ -115,6 +116,8 @@ class _AuthDialogState extends State<AuthDialog> {
 
   Widget _buildUserProfileDialog(UsuarioModel user) {
     final paciente = AuthService.currentPaciente;
+    final isAdmin = user.rol == 'administrador';
+    final isCuidador = user.rol == 'cuidador';
 
     return AlertDialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
@@ -148,7 +151,8 @@ class _AuthDialogState extends State<AuthDialog> {
           ),
         ],
       ),
-      content: SingleChildScrollView(
+      content: SizedBox(
+        width: 380,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -157,45 +161,70 @@ class _AuthDialogState extends State<AuthDialog> {
             const SizedBox(height: 8),
             Row(
               children: [
-                const Text('Rol asignado: ', style: TextStyle(fontWeight: FontWeight.bold)),
+                const Text('Modo Activo: ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFE0F2FE),
+                    color: isAdmin
+                        ? Colors.amber.shade100
+                        : isCuidador
+                            ? const Color(0xFFD1FAE5)
+                            : const Color(0xFFE0F2FE),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
                     user.rol.toUpperCase(),
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.bold,
-                      color: Color(0xFF0284C7),
+                      color: isAdmin
+                          ? Colors.brown
+                          : isCuidador
+                              ? const Color(0xFF059669)
+                              : const Color(0xFF0284C7),
                     ),
                   ),
                 ),
               ],
             ),
+            const SizedBox(height: 12),
             if (paciente != null && paciente.codigoSincronizacion != null) ...[
-              const SizedBox(height: 14),
-              const Text('Código de Sincronización:', style: TextStyle(fontWeight: FontWeight.bold)),
-              const SizedBox(height: 4),
+              const Text('Tu Código de Sincronización:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+              const SizedBox(height: 6),
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 14),
                 decoration: BoxDecoration(
-                  color: Colors.grey.shade100,
+                  color: Colors.blue.shade50,
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: Colors.grey.shade300),
+                  border: Border.all(color: Colors.blue.shade200),
                 ),
-                child: Text(
-                  paciente.codigoSincronizacion!,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 2,
-                    color: Color(0xFF0284C7),
-                  ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      paciente.codigoSincronizacion!,
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 3,
+                        color: Color(0xFF0284C7),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.copy, size: 18, color: Color(0xFF0284C7)),
+                      tooltip: 'Copiar código',
+                      onPressed: () {
+                        Clipboard.setData(ClipboardData(text: paciente.codigoSincronizacion!));
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('¡Código copiado al portapapeles!'),
+                            duration: Duration(seconds: 2),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
                 ),
               ),
             ],
