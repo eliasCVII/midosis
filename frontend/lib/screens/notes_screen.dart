@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/models.dart';
 import '../services/api_service.dart';
+import '../services/auth_service.dart';
 
 class NotesScreen extends StatefulWidget {
   const NotesScreen({super.key});
@@ -21,12 +22,22 @@ class _NotesScreenState extends State<NotesScreen> {
   void initState() {
     super.initState();
     _loadNotesAndCalendar();
+    AuthService.currentUserNotifier.addListener(_loadNotesAndCalendar);
+  }
+
+  @override
+  void dispose() {
+    AuthService.currentUserNotifier.removeListener(_loadNotesAndCalendar);
+    _descCtrl.dispose();
+    super.dispose();
   }
 
   Future<void> _loadNotesAndCalendar() async {
     setState(() => _isLoading = true);
-    final notes = await ApiService.getNotes('demo');
-    final calItems = await ApiService.getCalendar(pacienteId: 'demo');
+    final patientId = AuthService.currentPacienteId;
+    final notes = await ApiService.getNotes(patientId);
+    final calItems = await ApiService.getCalendar(pacienteId: patientId);
+    if (!mounted) return;
     setState(() {
       _notes = notes;
       _calendarItems = calItems;
@@ -41,8 +52,9 @@ class _NotesScreenState extends State<NotesScreen> {
       return;
     }
 
+    final patientId = AuthService.currentPacienteId;
     final ok = await ApiService.addNote(
-      pacienteId: 'demo',
+      pacienteId: patientId,
       medicamentoId: _selectedMedicationId,
       descripcion: text,
     );
@@ -50,6 +62,7 @@ class _NotesScreenState extends State<NotesScreen> {
     if (ok) {
       _descCtrl.clear();
       setState(() => _selectedMedicationId = null);
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Nota registrada exitosamente')));
       _loadNotesAndCalendar();
     }

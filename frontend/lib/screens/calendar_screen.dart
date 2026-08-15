@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/models.dart';
 import '../services/api_service.dart';
+import '../services/auth_service.dart';
 
 class CalendarScreen extends StatefulWidget {
   const CalendarScreen({super.key});
@@ -20,11 +21,20 @@ class _CalendarScreenState extends State<CalendarScreen> {
   void initState() {
     super.initState();
     _loadCalendar();
+    AuthService.currentUserNotifier.addListener(_loadCalendar);
+  }
+
+  @override
+  void dispose() {
+    AuthService.currentUserNotifier.removeListener(_loadCalendar);
+    super.dispose();
   }
 
   Future<void> _loadCalendar() async {
     setState(() => _isLoading = true);
-    final items = await ApiService.getCalendar(pacienteId: 'demo');
+    final patientId = AuthService.currentPacienteId;
+    final items = await ApiService.getCalendar(pacienteId: patientId);
+    if (!mounted) return;
     setState(() {
       _items = items;
       _isLoading = false;
@@ -237,7 +247,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
           ElevatedButton(
             onPressed: () async {
-              final ok = await ApiService.modifySchedule('demo', item.idItemCalendario, ctrl.text.trim());
+              final ok = await ApiService.modifySchedule(AuthService.currentPacienteId, item.idItemCalendario, ctrl.text.trim());
               if (!mounted) return;
               Navigator.pop(ctx);
               if (ok) _loadCalendar();
@@ -266,7 +276,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
             onPressed: () async {
               final val = int.tryParse(ctrl.text.trim());
               if (val != null && val > 0) {
-                final ok = await ApiService.modifyFrequency('demo', item.idItemCalendario, val);
+                final ok = await ApiService.modifyFrequency(AuthService.currentPacienteId, item.idItemCalendario, val);
                 if (!mounted) return;
                 Navigator.pop(ctx);
                 if (ok) _loadCalendar();
@@ -296,7 +306,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
             onPressed: () async {
               final val = int.tryParse(ctrl.text.trim());
               if (val != null && val > 0) {
-                final ok = await ApiService.modifyDuration('demo', item.idItemCalendario, val);
+                final ok = await ApiService.modifyDuration(AuthService.currentPacienteId, item.idItemCalendario, val);
                 if (!mounted) return;
                 Navigator.pop(ctx);
                 if (ok) _loadCalendar();
@@ -327,7 +337,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
     );
 
     if (confirm == true) {
-      final ok = await ApiService.deleteItem('demo', item.idItemCalendario);
+      final ok = await ApiService.deleteItem(AuthService.currentPacienteId, item.idItemCalendario);
       if (ok) _loadCalendar();
     }
   }

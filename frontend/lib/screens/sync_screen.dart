@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../models/models.dart';
+import '../services/auth_service.dart';
 
 class SyncScreen extends StatefulWidget {
   const SyncScreen({super.key});
@@ -18,9 +19,19 @@ class _SyncScreenState extends State<SyncScreen> {
   bool _isLinking = false;
   String? _linkedPatientName;
 
+  @override
+  void initState() {
+    super.initState();
+    final currentCode = AuthService.currentPaciente?.codigoSincronizacion;
+    if (currentCode != null && currentCode.isNotEmpty) {
+      _generatedCode = currentCode;
+    }
+  }
+
   Future<void> _generateCode() async {
     setState(() => _isGenerating = true);
-    final code = await ApiService.generateSyncCode('demo');
+    final patientId = AuthService.currentPacienteId;
+    final code = await ApiService.generateSyncCode(patientId);
     setState(() {
       _generatedCode = code;
       _isGenerating = false;

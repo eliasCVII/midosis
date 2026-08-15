@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import '../models/models.dart';
 import '../services/api_service.dart';
+import '../services/auth_service.dart';
 import '../widgets/region_selection_dialog.dart';
 import '../widgets/cenabast_autocomplete_field.dart';
 
@@ -68,10 +69,12 @@ class _PrescriptionScreenState extends State<PrescriptionScreen> {
   void initState() {
     super.initState();
     _loadRegisteredMedications();
+    AuthService.currentUserNotifier.addListener(_loadRegisteredMedications);
   }
 
   @override
   void dispose() {
+    AuthService.currentUserNotifier.removeListener(_loadRegisteredMedications);
     for (var item in _medicationItems) {
       item.dispose();
     }
@@ -80,7 +83,9 @@ class _PrescriptionScreenState extends State<PrescriptionScreen> {
 
   Future<void> _loadRegisteredMedications() async {
     setState(() => _isLoadingList = true);
-    final items = await ApiService.getCalendar(pacienteId: 'demo');
+    final patientId = AuthService.currentPacienteId;
+    final items = await ApiService.getCalendar(pacienteId: patientId);
+    if (!mounted) return;
     setState(() {
       _registeredMedications = items;
       _isLoadingList = false;
@@ -260,6 +265,7 @@ class _PrescriptionScreenState extends State<PrescriptionScreen> {
       final result = await ApiService.registerPrescription(
         medications: medicationsPayload,
         metodoIngreso: metodo,
+        pacienteId: AuthService.currentPacienteId,
       );
 
       setState(() => _isSubmitting = false);
@@ -329,7 +335,7 @@ class _PrescriptionScreenState extends State<PrescriptionScreen> {
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
           ElevatedButton(
             onPressed: () async {
-              final ok = await ApiService.modifySchedule('demo', item.idItemCalendario, ctrl.text.trim());
+              final ok = await ApiService.modifySchedule(AuthService.currentPacienteId, item.idItemCalendario, ctrl.text.trim());
               if (!mounted) return;
               Navigator.pop(ctx);
               if (ok) _loadRegisteredMedications();
@@ -358,7 +364,7 @@ class _PrescriptionScreenState extends State<PrescriptionScreen> {
             onPressed: () async {
               final val = int.tryParse(ctrl.text.trim());
               if (val != null && val > 0) {
-                final ok = await ApiService.modifyFrequency('demo', item.idItemCalendario, val);
+                final ok = await ApiService.modifyFrequency(AuthService.currentPacienteId, item.idItemCalendario, val);
                 if (!mounted) return;
                 Navigator.pop(ctx);
                 if (ok) _loadRegisteredMedications();
@@ -388,7 +394,7 @@ class _PrescriptionScreenState extends State<PrescriptionScreen> {
             onPressed: () async {
               final val = int.tryParse(ctrl.text.trim());
               if (val != null && val > 0) {
-                final ok = await ApiService.modifyDuration('demo', item.idItemCalendario, val);
+                final ok = await ApiService.modifyDuration(AuthService.currentPacienteId, item.idItemCalendario, val);
                 if (!mounted) return;
                 Navigator.pop(ctx);
                 if (ok) _loadRegisteredMedications();
@@ -531,7 +537,7 @@ class _PrescriptionScreenState extends State<PrescriptionScreen> {
     );
 
     if (confirm == true) {
-      final success = await ApiService.deleteItem('demo', item.idItemCalendario);
+      final success = await ApiService.deleteItem(AuthService.currentPacienteId, item.idItemCalendario);
       if (!mounted) return;
       if (success) {
         ScaffoldMessenger.of(context).showSnackBar(
