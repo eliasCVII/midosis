@@ -28,17 +28,13 @@ def create_app(config_class=Config):
     app = Flask(__name__)
     app.config.from_object(config_class)
 
-    # Enable CORS for all routes (allows Flutter Web / Mobile clients)
     CORS(app, resources={r"/*": {"origins": "*"}})
 
-    # Initialize extensions
     db.init_app(app)
 
     with app.app_context():
-        # Ensure all models are registered in metadata and tables exist
         db.create_all()
 
-        # Auto-seed CENABAST medications if table is empty
         try:
             if db.session.query(Medicamento).count() < 100:
                 from app.services.cenabast import CenabastService
@@ -48,7 +44,6 @@ def create_app(config_class=Config):
 
 
 
-    # Register blueprints
     app.register_blueprint(health_bp)
     app.register_blueprint(prescription_bp)
     app.register_blueprint(calendar_bp)

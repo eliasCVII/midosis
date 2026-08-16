@@ -22,7 +22,6 @@ def scan_prescription():
     if file.filename == "":
         return jsonify({"error": "Falla en el escaneo: Nombre de archivo vacío"}), 400
 
-    # Parse optional crop bounding box parameters
     crop_box = None
     try:
         if "crop_box" in request.form:
@@ -51,7 +50,8 @@ def upload_pdf():
     if not file.filename.lower().endswith(".pdf"):
         return jsonify({"error": "Archivos inválidos: El archivo debe ser un documento PDF (.pdf)"}), 400
 
+    password = request.form.get("password") or request.args.get("password")
     pdf_bytes = file.read()
-    res, status_code = PdfService.process_pdf(pdf_bytes)
+    res, status_code = PdfService.process_pdf(pdf_bytes, password=password)
     return jsonify(res), status_code
 

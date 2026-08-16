@@ -287,6 +287,7 @@ class _AuthDialogState extends State<AuthDialog> {
               const Text('Tipo de perfil / Rol:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
               const SizedBox(height: 8),
               SegmentedButton<String>(
+                showSelectedIcon: false,
                 segments: const [
                   ButtonSegment(value: 'paciente', label: Text('Paciente')),
                   ButtonSegment(value: 'cuidador', label: Text('Cuidador')),

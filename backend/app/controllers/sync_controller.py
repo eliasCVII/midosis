@@ -6,13 +6,11 @@ class SyncController:
     def generate_sync_code(id_paciente):
         paciente = db.session.get(Paciente, id_paciente)
         if not paciente:
-            # Fallback to demo patient
             paciente = Paciente.query.first()
             if not paciente:
                 return {"error": "Calendario no encontrado"}, 404
 
         if not paciente.codigo_sincronizacion:
-            # Generate 6-char alphanumeric code (e.g. K7A-6AT)
             raw = str(uuid.uuid4()).replace("-", "").upper()
             paciente.codigo_sincronizacion = f"{raw[:3]}-{raw[3:6]}"
             db.session.commit()

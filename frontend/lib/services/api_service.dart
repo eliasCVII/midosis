@@ -215,13 +215,17 @@ class ApiService {
     return jsonDecode(response.body);
   }
 
-  // Read Prescription PDF
+  // Read Prescription PDF (supports optional password for encrypted documents)
   static Future<Map<String, dynamic>> readPrescriptionPdf({
     required List<int> bytes,
     required String filename,
+    String? password,
   }) async {
     final request = http.MultipartRequest('POST', Uri.parse('$baseUrl/prescriptions/pdf'));
     request.files.add(http.MultipartFile.fromBytes('file', bytes, filename: filename));
+    if (password != null && password.trim().isNotEmpty) {
+      request.fields['password'] = password.trim();
+    }
     final streamedRes = await request.send();
     final response = await http.Response.fromStream(streamedRes);
     return jsonDecode(response.body);

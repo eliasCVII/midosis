@@ -129,7 +129,12 @@ class _SyncScreenState extends State<SyncScreen> {
                           children: [
                             Icon(Icons.share, color: Color(0xFF0284C7)),
                             SizedBox(width: 8),
-                            Text('Paciente: Generar Código de Sincronización', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                            Expanded(
+                              child: Text(
+                                'Generar Código de Sincronización',
+                                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                              ),
+                            ),
                           ],
                         ),
                         const SizedBox(height: 8),

@@ -10,7 +10,6 @@ class Nota(db.Model):
     descripcion = db.Column(db.Text, nullable=False)
     fecha = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
 
-    # Relationships
     medicamento = db.relationship("Medicamento", lazy=True)
 
     def to_dict(self):

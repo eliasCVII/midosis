@@ -6,13 +6,12 @@ class NoteController:
     @staticmethod
     def create_note(data):
         id_paciente = data.get("IdPaciente")
-        id_medicamento = data.get("IdMedicamento") # Can be null or "ninguno"
+        id_medicamento = data.get("IdMedicamento")
         descripcion = data.get("Descripcion")
 
         if not descripcion or not descripcion.strip():
             return {"error": "La descripción del efecto secundario / síntoma es requerida"}, 400
 
-        # Ensure patient exists
         if not id_paciente:
             paciente = Paciente.query.first()
             if paciente:

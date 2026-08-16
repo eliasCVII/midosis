@@ -5,7 +5,6 @@ from PIL import Image
 import easyocr
 from app.services.prescription_parser import PrescriptionParser
 
-# Singleton EasyOCR reader instance for performance
 _reader: Optional[easyocr.Reader] = None
 
 
@@ -19,21 +18,18 @@ def get_ocr_reader() -> easyocr.Reader:
 class OcrService:
     @staticmethod
     def process_image(image_bytes: bytes, crop_box: Optional[Dict[str, float]] = None) -> Dict[str, Any]:
-        """Processes prescription image bytes, optionally cropping to user-selected region before running OCR."""
         if not image_bytes:
             return {"error": "Imagen vacía o no provista"}, 400
 
         try:
             image = Image.open(io.BytesIO(image_bytes))
-            
-            # Crop to user-specified bounding box if provided (percentages 0.0 - 1.0)
+
             if crop_box:
                 x = float(crop_box.get("x", 0))
                 y = float(crop_box.get("y", 0))
                 w = float(crop_box.get("width", 1.0))
                 h = float(crop_box.get("height", 1.0))
-                
-                # Normalize bounds
+
                 if w < 0:
                     x += w
                     w = abs(w)
@@ -45,17 +41,16 @@ class OcrService:
                 y = max(0.0, min(1.0, y))
                 w = max(0.0, min(1.0 - x, w))
                 h = max(0.0, min(1.0 - y, h))
-                
+
                 left = int(x * image.width)
                 top = int(y * image.height)
                 right = int((x + w) * image.width)
                 bottom = int((y + h) * image.height)
-                
+
                 if right > left and bottom > top:
                     image = image.crop((left, top, right, bottom))
 
 
-            # Convert PIL Image to byte buffer for EasyOCR
             buffer = io.BytesIO()
             image.convert("RGB").save(buffer, format="JPEG")
             img_bytes = buffer.getvalue()

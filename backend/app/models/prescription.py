@@ -9,7 +9,6 @@ class Receta(db.Model):
     metodo_ingreso = db.Column(db.String(20), nullable=False) # 'Manual', 'Foto', 'PDF'
     id_paciente = db.Column(db.String(36), db.ForeignKey("paciente.id_paciente"), nullable=False)
 
-    # Relationships
     detalles = db.relationship("DetalleReceta", backref="receta", lazy=True, cascade="all, delete-orphan")
 
     def to_dict(self):

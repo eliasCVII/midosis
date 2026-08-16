@@ -9,13 +9,12 @@ class CenabastService:
         self.data_dir = data_dir or os.getenv("CENABAST_DATA_DIR", "/app/data/cenabast")
 
     def list_cenabast_files(self):
-        """List all available CENABAST excel files in the target data directory."""
         if not os.path.exists(self.data_dir):
             return []
         return [f for f in os.listdir(self.data_dir) if f.endswith(".xlsx")]
 
     def import_excel_data(self, file_path: str = None) -> Dict[str, Any]:
-        """Reads and imports CENABAST XLSX data into MySQL database as Medicamento records."""
+        """Importa los datos del archivo XLSX a la base de datos MySQL"""
         if not file_path:
             files = self.list_cenabast_files()
             if not files:
@@ -69,7 +68,6 @@ class CenabastService:
                 med.efectos_secundarios = efectos_clean
                 updated_count += 1
 
-        # Purge any obsolete or marked-for-deletion items from the database
         for term in ["BORRA", "MARCADO", "DESCONTINUA", "OBSOLET", "CANCELAD", "NO USAR"]:
             Medicamento.query.filter(Medicamento.nombre.ilike(f"%{term}%")).delete(synchronize_session=False)
 

@@ -20,23 +20,27 @@ class _MedicationFormItem {
   final TextEditingController frecuenciaCtrl;
   final TextEditingController duracionCtrl;
   final TextEditingController horaCtrl;
+  final bool needsConfirmation;
+  final List<String> warnings;
 
   _MedicationFormItem({
     String nombre = '',
-    int frecuencia = 8,
-    int duracion = 7,
-    String hora = '08:00',
+    int? frecuencia,
+    int? duracion,
+    String? hora,
+    this.needsConfirmation = false,
+    this.warnings = const [],
   })  : nombreCtrl = TextEditingController(text: nombre),
-        frecuenciaCtrl = TextEditingController(text: frecuencia.toString()),
-        duracionCtrl = TextEditingController(text: duracion.toString()),
-        horaCtrl = TextEditingController(text: hora);
+        frecuenciaCtrl = TextEditingController(text: frecuencia != null ? frecuencia.toString() : ''),
+        duracionCtrl = TextEditingController(text: duracion != null ? duracion.toString() : ''),
+        horaCtrl = TextEditingController(text: hora ?? '');
 
   Map<String, dynamic> toMap() {
     return {
       'Nombre': nombreCtrl.text.trim(),
       'FrecuenciaHoras': int.tryParse(frecuenciaCtrl.text.trim()) ?? 8,
       'DuracionDias': int.tryParse(duracionCtrl.text.trim()) ?? 7,
-      'HoraInicio': horaCtrl.text.trim(),
+      'HoraInicio': horaCtrl.text.trim().isNotEmpty ? horaCtrl.text.trim() : '08:00',
     };
   }
 
@@ -122,11 +126,15 @@ class _PrescriptionScreenState extends State<PrescriptionScreen> {
         _medicationItems.add(_MedicationFormItem());
       } else {
         for (var m in parsedMeds) {
+          final warnings = (m['warnings'] as List?)?.map((w) => w.toString()).toList() ?? [];
+          final needsConf = m['needs_confirmation'] == true;
           _medicationItems.add(_MedicationFormItem(
             nombre: m['Nombre'] ?? '',
-            frecuencia: m['FrecuenciaHoras'] ?? 8,
-            duracion: m['DuracionDias'] ?? 7,
-            hora: m['HoraInicio'] ?? '08:00',
+            frecuencia: m['FrecuenciaHoras'],
+            duracion: m['DuracionDias'],
+            hora: m['HoraInicio'],
+            needsConfirmation: needsConf,
+            warnings: warnings,
           ));
         }
       }
@@ -184,7 +192,7 @@ class _PrescriptionScreenState extends State<PrescriptionScreen> {
         _populateMedications(meds);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Prescripción procesada. (${meds.length} medicamento(s) detectado(s))'),
+            content: Text('Se reconocieron e ingresaron ${meds.length} medicamento(s).'),
             backgroundColor: const Color(0xFF0284C7),
           ),
         );
@@ -200,6 +208,79 @@ class _PrescriptionScreenState extends State<PrescriptionScreen> {
         SnackBar(content: Text('Error al procesar la imagen: $e')),
       );
     }
+  }
+
+  Future<String?> _showPdfPasswordDialog({bool isRetry = false}) async {
+    final pwdCtrl = TextEditingController();
+    bool obscureText = true;
+
+    return showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogCtx) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              title: const Row(
+                children: [
+                  Icon(Icons.lock, color: Color(0xFF0284C7)),
+                  SizedBox(width: 8),
+                  Text('Documento Protegido', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                ],
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    isRetry
+                        ? 'Contraseña incorrecta. Por favor intente nuevamente:'
+                        : 'Este documento PDF está protegido con contraseña. Ingrese la clave para desbloquearlo:',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: isRetry ? Colors.red.shade700 : const Color(0xFF64748B),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  TextField(
+                    controller: pwdCtrl,
+                    obscureText: obscureText,
+                    autofocus: true,
+                    enableSuggestions: false,
+                    autocorrect: false,
+                    decoration: InputDecoration(
+                      labelText: 'Contraseña',
+                      hintText: '••••••••',
+                      border: const OutlineInputBorder(),
+                      suffixIcon: IconButton(
+                        icon: Icon(obscureText ? Icons.visibility : Icons.visibility_off),
+                        onPressed: () => setDialogState(() => obscureText = !obscureText),
+                      ),
+                    ),
+                    onSubmitted: (val) => Navigator.pop(dialogCtx, val.trim()),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogCtx, null),
+                  child: const Text('Cancelar', style: TextStyle(color: Colors.grey)),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF0284C7),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  onPressed: () => Navigator.pop(dialogCtx, pwdCtrl.text.trim()),
+                  child: const Text('Desbloquear', style: TextStyle(color: Colors.white)),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
   }
 
   Future<void> _pickAndProcessPdf() async {
@@ -219,10 +300,28 @@ class _PrescriptionScreenState extends State<PrescriptionScreen> {
         _isProcessingFile = true;
       });
 
-      final response = await ApiService.readPrescriptionPdf(
+      var response = await ApiService.readPrescriptionPdf(
         bytes: file.bytes!,
         filename: file.name,
       );
+
+      // Handle Password-Protected PDF
+      while (mounted && (response['status'] == 'password_required' || response['status'] == 'invalid_password')) {
+        setState(() => _isProcessingFile = false);
+        final isRetry = response['status'] == 'invalid_password';
+        final password = await _showPdfPasswordDialog(isRetry: isRetry);
+        if (password == null || password.isEmpty) {
+          // User cancelled
+          return;
+        }
+
+        setState(() => _isProcessingFile = true);
+        response = await ApiService.readPrescriptionPdf(
+          bytes: file.bytes!,
+          filename: file.name,
+          password: password,
+        );
+      }
 
       setState(() => _isProcessingFile = false);
       if (!mounted) return;
@@ -232,7 +331,7 @@ class _PrescriptionScreenState extends State<PrescriptionScreen> {
         _populateMedications(meds);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Documento PDF leído exitosamente. (${meds.length} medicamento(s) detectado(s))'),
+            content: Text('Se reconocieron e ingresaron ${meds.length} medicamento(s).'),
             backgroundColor: const Color(0xFF0284C7),
           ),
         );
@@ -578,32 +677,29 @@ class _PrescriptionScreenState extends State<PrescriptionScreen> {
             style: TextStyle(fontSize: 14, color: Color(0xFF475569)),
           ),
           const SizedBox(height: 20),
-          Row(
-            children: [
-              Expanded(
-                child: ChoiceChip(
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                ChoiceChip(
                   label: const Text('Ingreso Manual'),
                   selected: _selectedPath == 0,
                   onSelected: (val) => setState(() => _selectedPath = 0),
                 ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: ChoiceChip(
+                const SizedBox(width: 8),
+                ChoiceChip(
                   label: const Text('Escanear Foto'),
                   selected: _selectedPath == 1,
                   onSelected: (val) => setState(() => _selectedPath = 1),
                 ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: ChoiceChip(
-                  label: const Text('Subir PDF'),
+                const SizedBox(width: 8),
+                ChoiceChip(
+                  label: const Text('Leer PDF'),
                   selected: _selectedPath == 2,
                   onSelected: (val) => setState(() => _selectedPath = 2),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
           const SizedBox(height: 24),
 
@@ -702,8 +798,11 @@ class _PrescriptionScreenState extends State<PrescriptionScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    Wrap(
+                      alignment: WrapAlignment.spaceBetween,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: 8,
+                      runSpacing: 8,
                       children: [
                         Text(
                           _selectedPath == 0
@@ -738,9 +837,27 @@ class _PrescriptionScreenState extends State<PrescriptionScreen> {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Text(
-                                  'Medicamento ${idx + 1}',
-                                  style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF0284C7)),
+                                Row(
+                                  children: [
+                                    Text(
+                                      'Medicamento ${idx + 1}',
+                                      style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF0284C7)),
+                                    ),
+                                    if (item.needsConfirmation) ...[
+                                      const SizedBox(width: 8),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: Colors.amber.shade100,
+                                          borderRadius: BorderRadius.circular(6),
+                                        ),
+                                        child: Text(
+                                          'Revisar campos',
+                                          style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.amber.shade900),
+                                        ),
+                                      ),
+                                    ],
+                                  ],
                                 ),
                                 if (_medicationItems.length > 1)
                                   IconButton(
@@ -837,15 +954,19 @@ class _PrescriptionScreenState extends State<PrescriptionScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  const Icon(Icons.medication, color: Color(0xFF0284C7)),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Medicamentos Registrados (${_registeredMedications.length})',
-                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-                ],
+              Expanded(
+                child: Row(
+                  children: [
+                    const Icon(Icons.medication, color: Color(0xFF0284C7)),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Medicamentos Registrados (${_registeredMedications.length})',
+                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ],
+                ),
               ),
               IconButton(onPressed: _loadRegisteredMedications, icon: const Icon(Icons.refresh)),
             ],

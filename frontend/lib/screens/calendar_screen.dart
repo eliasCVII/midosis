@@ -544,16 +544,26 @@ class _CalendarScreenState extends State<CalendarScreen> {
           const SizedBox(height: 20),
 
           // SELECTED DAY MEDICATION LIST
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 8,
+            runSpacing: 4,
             children: [
               Text(
                 'Medicamentos del ${_selectedDay.day} de ${_monthsEs[_selectedDay.month - 1]}',
                 style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
               ),
-              Chip(
-                label: Text('${selectedDayItems.length} medicamentos'),
-                backgroundColor: const Color(0xFFE0F2FE),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE0F2FE),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  '${selectedDayItems.length} ${selectedDayItems.length == 1 ? "medicamento" : "medicamentos"}',
+                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF0284C7)),
+                ),
               ),
             ],
           ),

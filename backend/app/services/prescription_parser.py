@@ -1,114 +1,150 @@
 import re
-from typing import Dict, Any, List
-from app.models import db, Medicamento
+import difflib
+import unicodedata
+from typing import Dict, Any, List, Optional
+from app.models import Medicamento
 
 
 class PrescriptionParser:
-    @staticmethod
-    def parse_text_lines(lines: List[str]) -> List[Dict[str, Any]]:
-        """Parses a list of text lines extracted via OCR or PDF into multiple structured prescription objects."""
+    """Parser que compara strings con nombres de medicamento en la base de datos CENABAST.
+    """
+
+    CANTIDAD_REGEX = r'\b(\d+(?:[,\.]\d+)?\s*(?:mg|miligramos?|g|gramos?|ml|mililitros?|mcg|microgramos?|ug|ui|%|mg\/ml))\b'
+
+    _catalog_cache: Optional[Dict[str, str]] = None
+
+    @classmethod
+    def normalize_text(cls, text: str) -> str:
+        """Normaliza strings."""
+        if not text:
+            return ""
+        nfkd = unicodedata.normalize('NFKD', text)
+        unacc = ''.join([c for c in nfkd if not unicodedata.combining(c)])
+        clean = re.sub(r'[^a-z0-9\s]', ' ', unacc.lower())
+        return re.sub(r'\s+', ' ', clean).strip()
+
+    @classmethod
+    def _clean_catalog_name(cls, raw: str) -> str:
+        """Extrae unicamente el nombre del medicamento, sin dosis ni cantidad."""
+        c = re.split(cls.CANTIDAD_REGEX, raw, flags=re.IGNORECASE)[0]
+        c = re.sub(r'[\/\+\(\)\,\.]', ' ', c)
+        return re.sub(r'\s+', ' ', c).strip()
+
+    @classmethod
+    def get_catalog(cls) -> Dict[str, str]:
+        """Carga la BD CENABAST a la memoria cache."""
+        if cls._catalog_cache is not None:
+            return cls._catalog_cache
+
+        raw_meds = []
+        try:
+            raw_meds = [m.nombre for m in Medicamento.query.all()]
+        except Exception:
+            try:
+                from app import create_app
+                app = create_app()
+                with app.app_context():
+                    raw_meds = [m.nombre for m in Medicamento.query.all()]
+            except Exception:
+                pass
+
+        catalog: Dict[str, str] = {}
+        for raw in raw_meds:
+            cleaned = cls._clean_catalog_name(raw)
+            norm = cls.normalize_text(cleaned)
+            if len(norm) >= 3:
+                catalog[norm] = cleaned.title()
+
+        cls._catalog_cache = catalog
+        return cls._catalog_cache
+
+    @classmethod
+    def resolve_medication(cls, text: str) -> Optional[str]:
+        """Busca el 'match' mas largo con la BD CENABAST."""
+        catalog = cls.get_catalog()
+        words = cls.normalize_text(text).split()
+        if not words or not catalog:
+            return None
+
+        for n in range(min(5, len(words)), 0, -1):
+            for i in range(len(words) - n + 1):
+                phrase = ' '.join(words[i:i+n])
+                if phrase in catalog:
+                    return catalog[phrase]
+
+        for n in range(min(3, len(words)), 0, -1):
+            for i in range(len(words) - n + 1):
+                phrase = ' '.join(words[i:i+n])
+                if len(phrase) >= 5 and not phrase.isdigit():
+                    close = difflib.get_close_matches(phrase, catalog.keys(), n=1, cutoff=0.85)
+                    if close:
+                        return catalog[close[0]]
+        return None
+
+    @classmethod
+    def parse_text_lines(cls, lines: List[str]) -> List[Dict[str, Any]]:
+        """Realiza escaneo completo del texto extraido.
+        """
         if not lines:
             return [{
+                # Valores por defecto
                 "Nombre": "Medicamento",
                 "FrecuenciaHoras": 8,
                 "DuracionDias": 7,
-                "HoraInicio": "08:00"
+                "HoraInicio": "08:00",
+                "needs_confirmation": True
             }]
 
-        blocks: List[List[str]] = []
-        current_block: List[str] = []
+        results: List[Dict[str, Any]] = []
+        seen_names: set = set()
 
-        def is_medication_header(line: str) -> bool:
-            clean = line.strip()
-            if not clean:
-                return False
-            # Lines starting with intake instructions/verbs are NOT new medication headers
-            if re.match(r'^(tomar|usar|aplicar|ingerir|dosis|indicaciones|v[íi]a):?', clean, re.IGNORECASE):
-                return False
-            # Check numbered lines like "1.", "1-", "2.", "1)"
-            if re.match(r'^\d+[\.\-\)]\s*', clean):
-                return True
-            # Check DB match on first word
-            words = [w for w in re.split(r'\s+', clean) if len(w) >= 3]
-            if words:
-                try:
-                    match = Medicamento.query.filter(Medicamento.nombre.ilike(f"%{words[0]}%")).first()
-                    if match:
-                        return True
-                except Exception:
-                    pass
-            # Check drug name pattern e.g. "Paracetamol 500mg" or "Amoxicilina"
-            if re.search(r'^[A-Za-zÀ-ÿ0-9\s]+\d+\s*(mg|g|ml|mcg)\b', clean, re.IGNORECASE):
-                return True
-            return False
-
-        for line in lines:
-            clean = line.strip()
-            if not clean:
-                continue
-            # Ignore global document header keywords
-            if re.match(r'^(rp|receta|médico|paciente|rut|fecha|doctor|instituci[óo]n):?', clean, re.IGNORECASE):
+        for idx, line in enumerate(lines):
+            trimmed = line.strip()
+            if not trimmed:
                 continue
 
-            if is_medication_header(clean) and current_block:
-                blocks.append(current_block)
-                current_block = [clean]
-            else:
-                current_block.append(clean)
+            matched_drug = cls.resolve_medication(trimmed)
+            if matched_drug:
+                norm_matched = cls.normalize_text(matched_drug)
+                if norm_matched in seen_names:
+                    continue
+                seen_names.add(norm_matched)
 
-        if current_block:
-            blocks.append(current_block)
+                strength_match = re.search(cls.CANTIDAD_REGEX, trimmed, re.IGNORECASE)
+                if not strength_match and idx + 1 < len(lines):
+                    strength_match = re.search(cls.CANTIDAD_REGEX, lines[idx + 1], re.IGNORECASE)
 
-        if not blocks:
-            blocks = [lines]
+                if strength_match:
+                    raw_str = strength_match.group(1).strip()
+                    parts_match = re.search(r'^(\d+(?:[,\.]\d+)?)\s*([A-Za-z%]+)$', raw_str)
+                    if parts_match:
+                        strength = f"{parts_match.group(1)} {parts_match.group(2).lower()}"
+                    else:
+                        strength = raw_str
+                else:
+                    strength = None
 
-        results = []
-        for block in blocks:
-            block_text = " ".join(block)
-            
-            # Extract frequency
-            frecuencia = 8
-            frec_match = re.search(r'(?:c/|cada\s*)(\d+)\s*(?:h|hrs|horas)', block_text, re.IGNORECASE)
-            if frec_match:
-                frecuencia = int(frec_match.group(1))
-            elif re.search(r'1\s*vez\s*al\s*d[íi]a', block_text, re.IGNORECASE):
-                frecuencia = 24
-            elif re.search(r'2\s*veces\s*al\s*d[íi]a', block_text, re.IGNORECASE):
-                frecuencia = 12
-            elif re.search(r'3\s*veces\s*al\s*d[íi]a', block_text, re.IGNORECASE):
-                frecuencia = 8
-            elif re.search(r'4\s*veces\s*al\s*d[íi]a', block_text, re.IGNORECASE):
-                frecuencia = 6
+                if strength and strength.lower() not in matched_drug.lower():
+                    final_name = f"{matched_drug} {strength}"
+                else:
+                    final_name = matched_drug
 
-            # Extract duration
-            duracion = 7
-            dur_match = re.search(r'(?:por|durante|x)\s*(\d+)\s*(?:d[íi]as?|d)', block_text, re.IGNORECASE)
-            if dur_match:
-                duracion = int(dur_match.group(1))
-            else:
-                sem_match = re.search(r'(?:por|durante|x)\s*(\d+)\s*semanas?', block_text, re.IGNORECASE)
-                if sem_match:
-                    duracion = int(sem_match.group(1)) * 7
-                elif re.search(r'por\s*1\s*mes', block_text, re.IGNORECASE):
-                    duracion = 30
+                results.append({
+                    "Nombre": final_name,
+                    "FrecuenciaHoras": 8,
+                    "DuracionDias": 7,
+                    "HoraInicio": "08:00",
+                    "needs_confirmation": True
+                })
 
-            # Extract start time
-            hora_inicio = "08:00"
-            hora_match = re.search(r'\b([01]?\d|2[0-3]):([0-5]\d)\b', block_text)
-            if hora_match:
-                h, m = int(hora_match.group(1)), int(hora_match.group(2))
-                hora_inicio = f"{h:02d}:{m:02d}"
-
-            # Extract drug name: ALWAYS preserve exact text extracted from OCR/PDF
-            first_line = re.sub(r'^\d+[\.\-\)]\s*', '', block[0]).strip()
-            nombre_med = first_line if first_line else "Medicamento Detectado"
-
-
+        if not results:
+            first_valid = next((l.strip() for l in lines if len(l.strip()) >= 3), "Medicamento Detectado")
             results.append({
-                "Nombre": nombre_med,
-                "FrecuenciaHoras": frecuencia,
-                "DuracionDias": duracion,
-                "HoraInicio": hora_inicio
+                "Nombre": first_valid,
+                "FrecuenciaHoras": 8,
+                "DuracionDias": 7,
+                "HoraInicio": "08:00",
+                "needs_confirmation": True
             })
 
         return results
