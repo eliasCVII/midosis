@@ -16,7 +16,6 @@ class AuthController:
         if role not in ["paciente", "cuidador", "administrador"]:
             role = "paciente"
 
-        # Check if user already exists
         user = Usuario.query.filter_by(correo=email).first()
         if not user:
             user_id = f"user_{uuid.uuid4().hex[:12]}"
@@ -29,7 +28,6 @@ class AuthController:
             db.session.add(user)
             db.session.flush()
         else:
-            # Update active role and name if needed
             user.rol = role
             if name and name != "Usuario Google":
                 user.nombre = name
@@ -38,7 +36,6 @@ class AuthController:
         cuidador_dict = None
         admin_dict = None
 
-        # Always provision Paciente profile and Calendar if needed
         paciente = Paciente.query.filter_by(id_usuario=user.id_usuario).first()
         if not paciente:
             raw_code = str(uuid.uuid4()).replace("-", "").upper()
@@ -52,7 +49,6 @@ class AuthController:
             db.session.add(paciente)
             db.session.flush()
 
-            # Ensure Calendario exists for this paciente
             cal_id = f"cal_{uuid.uuid4().hex[:12]}"
             calendario = Calendario(
                 id_calendario=cal_id,
@@ -71,7 +67,6 @@ class AuthController:
 
         paciente_dict = paciente.to_dict()
 
-        # Always provision Cuidador profile if needed
         cuidador = Cuidador.query.filter_by(id_usuario=user.id_usuario).first()
         if not cuidador:
             cuidador_id = f"cuidador_{uuid.uuid4().hex[:12]}"

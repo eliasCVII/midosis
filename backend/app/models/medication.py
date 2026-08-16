@@ -8,7 +8,6 @@ class Medicamento(db.Model):
     descripcion = db.Column(db.Text, nullable=True)
     efectos_secundarios = db.Column(db.Text, nullable=True)
 
-    # Relationships
     detalles_receta = db.relationship("DetalleReceta", backref="medicamento", lazy=True)
 
     def to_dict(self):

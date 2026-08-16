@@ -7,7 +7,6 @@ class CalendarController:
     def get_patient_calendar(id_paciente):
         calendario = Calendario.query.filter_by(id_paciente=id_paciente).first()
         if not calendario:
-            # Fallback to any existing calendar or empty structure
             calendario = Calendario.query.first()
             if not calendario:
                 return {"status": "success", "calendario": {"IdCalendario": "empty", "IdPaciente": id_paciente, "Items": []}}, 200
@@ -25,7 +24,6 @@ class CalendarController:
 
     @staticmethod
     def modify_schedule(id_paciente, id_item_calendario, nueva_hora):
-        # Validate time format (HH:MM 24h)
         if not re.match(r"^([01]?[0-9]|2[0-3]):[0-5][0-9]$", nueva_hora):
             return {"error": "Hora inválida. Debe usar formato HH:MM"}, 400
 
@@ -85,7 +83,7 @@ class CalendarController:
 
         item.duracion_dias = dur
         item.fecha_termino = item.fecha_inicio + timedelta(days=dur)
-        
+
         if item.id_detalle_receta:
             detalle = db.session.get(DetalleReceta, item.id_detalle_receta)
             if detalle:

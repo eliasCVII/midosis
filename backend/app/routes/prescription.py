@@ -22,7 +22,6 @@ def scan_prescription():
     if file.filename == "":
         return jsonify({"error": "Falla en el escaneo: Nombre de archivo vacío"}), 400
 
-    # Parse optional crop bounding box parameters
     crop_box = None
     try:
         if "crop_box" in request.form:

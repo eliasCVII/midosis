@@ -6,7 +6,7 @@ class PrescriptionController:
     @staticmethod
     def register_manual_prescription(data):
         """Processes manual prescription registration and automatically updates/generates medication calendar.
-        
+
         Expected payload:
         {
             "IdPaciente": "str",  # Optional; if not provided, a default demo patient is used
@@ -28,7 +28,6 @@ class PrescriptionController:
         if not medications_data:
             return {"error": "Debe incluir al menos un medicamento"}, 400
 
-        # Validate entries
         for item in medications_data:
             if not item.get("Nombre"):
                 return {"error": "El nombre del medicamento es requerido"}, 400
@@ -45,7 +44,6 @@ class PrescriptionController:
 
         id_paciente = data.get("IdPaciente") or "demo"
 
-        # Ensure patient exists or create default demo patient
         paciente = Paciente.query.filter((Paciente.id_paciente == id_paciente) | (Paciente.id_paciente == "demo")).first()
         if not paciente:
             default_user = Usuario.query.filter_by(correo="paciente.demo@midosis.cl").first()
@@ -72,7 +70,6 @@ class PrescriptionController:
                 db.session.commit()
         id_paciente = paciente.id_paciente
 
-        # 1. Create Receta
         receta_id = str(uuid.uuid4())
         nueva_receta = Receta(
             id_receta=receta_id,
@@ -82,7 +79,6 @@ class PrescriptionController:
         )
         db.session.add(nueva_receta)
 
-        # Ensure Calendario exists
         calendario = Calendario.query.filter_by(id_paciente=id_paciente).first()
         if not calendario:
             calendario = Calendario(
@@ -98,7 +94,6 @@ class PrescriptionController:
             dur = int(item["DuracionDias"])
             hora_inicio = item.get("HoraInicio", "08:00")
 
-            # Lookup or create Medicamento (catalogue entry)
             medicamento = Medicamento.query.filter(Medicamento.nombre.ilike(nombre_med)).first()
             if not medicamento:
                 medicamento = Medicamento(
@@ -110,7 +105,6 @@ class PrescriptionController:
                 db.session.add(medicamento)
                 db.session.flush()
 
-            # 2. Create DetalleReceta with prescription-specific frequency and duration
             detalle_id = str(uuid.uuid4())
             detalle = DetalleReceta(
                 id_detalle_receta=detalle_id,
@@ -123,7 +117,6 @@ class PrescriptionController:
             db.session.add(detalle)
             db.session.flush()
 
-            # 3. Create ItemCalendario anchored to closest next intake time/day
             now = datetime.now(timezone.utc)
             try:
                 h, m = map(int, hora_inicio.split(":"))

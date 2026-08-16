@@ -8,7 +8,6 @@ class Calendario(db.Model):
     id_paciente = db.Column(db.String(36), db.ForeignKey("paciente.id_paciente"), nullable=False, unique=True)
     fecha_actualizacion = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    # Relationships
     items = db.relationship("ItemCalendario", backref="calendario", lazy=True, cascade="all, delete-orphan")
 
     def to_dict(self):
@@ -27,15 +26,13 @@ class ItemCalendario(db.Model):
     id_calendario = db.Column(db.String(36), db.ForeignKey("calendario.id_calendario"), nullable=False)
     id_detalle_receta = db.Column(db.String(36), db.ForeignKey("detalle_receta.id_detalle_receta"), nullable=True)
     id_medicamento = db.Column(db.String(36), db.ForeignKey("medicamento.id_medicamento"), nullable=False)
-    
-    # Intakes schedule details for this active treatment item
+
     frecuencia_horas = db.Column(db.Integer, nullable=False)
     duracion_dias = db.Column(db.Integer, nullable=False)
     hora_inicio = db.Column(db.String(5), nullable=False) # e.g. "08:00"
     fecha_inicio = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     fecha_termino = db.Column(db.DateTime, nullable=False)
 
-    # Relationship to Medicamento
     medicamento = db.relationship("Medicamento", lazy=True)
 
     def to_dict(self):

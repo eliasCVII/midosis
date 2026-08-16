@@ -14,13 +14,9 @@ from app.services.pdf_service import PdfService
 def client():
     app = create_app()
     app.config["TESTING"] = True
-    app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///:memory:"
     with app.test_client() as client:
         with app.app_context():
-            db.create_all()
             yield client
-            db.session.remove()
-            db.drop_all()
 
 
 def test_prescription_parser_regex():
@@ -32,9 +28,9 @@ def test_prescription_parser_regex():
     parsed = PrescriptionParser.parse_text_lines(lines)
     assert len(parsed) == 1
     item = parsed[0]
-    assert item["FrecuenciaHoras"] == 8
-    assert item["DuracionDias"] == 7
-    assert item["HoraInicio"] == "08:00"
+    assert "Paracetamol" in item["Nombre"]
+    assert "500 mg" in item["Nombre"]
+    assert item["needs_confirmation"] is True
 
 
 def test_prescription_parser_multi_medications():
@@ -48,17 +44,14 @@ def test_prescription_parser_multi_medications():
     ]
     parsed = PrescriptionParser.parse_text_lines(lines)
     assert len(parsed) == 3
-    assert parsed[0]["FrecuenciaHoras"] == 8
-    assert parsed[0]["DuracionDias"] == 7
     assert "Paracetamol" in parsed[0]["Nombre"]
+    assert "500 mg" in parsed[0]["Nombre"]
 
-    assert parsed[1]["FrecuenciaHoras"] == 12
-    assert parsed[1]["DuracionDias"] == 10
     assert "Amoxicilina" in parsed[1]["Nombre"]
+    assert "500 mg" in parsed[1]["Nombre"]
 
-    assert parsed[2]["FrecuenciaHoras"] == 24
-    assert parsed[2]["DuracionDias"] == 30
-    assert "Losartán" in parsed[2]["Nombre"]
+    assert "Losartan" in parsed[2]["Nombre"] or "Losartán" in parsed[2]["Nombre"]
+    assert "50 mg" in parsed[2]["Nombre"]
 
 
 def test_prescription_parser_preamble_and_headers():
@@ -80,15 +73,39 @@ def test_prescription_parser_preamble_and_headers():
     ]
     parsed = PrescriptionParser.parse_text_lines(lines)
     assert len(parsed) == 2
-    assert "Losartán" in parsed[0]["Nombre"]
+    assert "Losartan" in parsed[0]["Nombre"] or "Losartán" in parsed[0]["Nombre"]
+    assert "50 mg" in parsed[0]["Nombre"]
     assert "CENTRO" not in parsed[0]["Nombre"]
-    assert parsed[0]["FrecuenciaHoras"] == 12
-    assert parsed[0]["DuracionDias"] == 30
 
     assert "Atorvastatina" in parsed[1]["Nombre"]
-    assert parsed[1]["FrecuenciaHoras"] == 24
-    assert parsed[1]["DuracionDias"] == 30
-    assert parsed[1]["HoraInicio"] == "21:00"
+    assert "20 mg" in parsed[1]["Nombre"]
+
+
+def test_prescription_parser_longest_match_compounds():
+    lines = [
+        "1. Ácido Acetilsalicílico 100 mg",
+        "Tomar 1 comprimido cada 24 horas por 30 días con el desayuno"
+    ]
+    parsed = PrescriptionParser.parse_text_lines(lines)
+    assert len(parsed) == 1
+    assert "Ac" in parsed[0]["Nombre"] or "Acido" in parsed[0]["Nombre"] or "Salicilico" in parsed[0]["Nombre"]
+    assert "100 mg" in parsed[0]["Nombre"]
+
+
+def test_prescription_parser_fuzzy_typo_correction():
+    lines = [
+        "1. Paracetam0l 500 mg",
+        "Tomar 1 comprimido cada 8 horas por 7 días",
+        "2. Atorvastatna 20 mg",
+        "Tomar cada 24 horas por 30 días"
+    ]
+    parsed = PrescriptionParser.parse_text_lines(lines)
+    assert len(parsed) == 2
+    assert "Paracetamol" in parsed[0]["Nombre"]
+    assert "500 mg" in parsed[0]["Nombre"]
+
+    assert "Atorvastatina" in parsed[1]["Nombre"]
+    assert "20 mg" in parsed[1]["Nombre"]
 
 
 def test_scan_prescription_image_endpoint(client):
@@ -169,3 +186,4 @@ def test_encrypted_pdf_password_flow(client):
     res_correct_data = res_correct.get_json()
     assert res_correct_data.get("status") != "password_required"
     assert res_correct_data.get("status") != "invalid_password"
+

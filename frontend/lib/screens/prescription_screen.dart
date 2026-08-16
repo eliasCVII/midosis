@@ -20,23 +20,27 @@ class _MedicationFormItem {
   final TextEditingController frecuenciaCtrl;
   final TextEditingController duracionCtrl;
   final TextEditingController horaCtrl;
+  final bool needsConfirmation;
+  final List<String> warnings;
 
   _MedicationFormItem({
     String nombre = '',
-    int frecuencia = 8,
-    int duracion = 7,
-    String hora = '08:00',
+    int? frecuencia,
+    int? duracion,
+    String? hora,
+    this.needsConfirmation = false,
+    this.warnings = const [],
   })  : nombreCtrl = TextEditingController(text: nombre),
-        frecuenciaCtrl = TextEditingController(text: frecuencia.toString()),
-        duracionCtrl = TextEditingController(text: duracion.toString()),
-        horaCtrl = TextEditingController(text: hora);
+        frecuenciaCtrl = TextEditingController(text: frecuencia != null ? frecuencia.toString() : ''),
+        duracionCtrl = TextEditingController(text: duracion != null ? duracion.toString() : ''),
+        horaCtrl = TextEditingController(text: hora ?? '');
 
   Map<String, dynamic> toMap() {
     return {
       'Nombre': nombreCtrl.text.trim(),
       'FrecuenciaHoras': int.tryParse(frecuenciaCtrl.text.trim()) ?? 8,
       'DuracionDias': int.tryParse(duracionCtrl.text.trim()) ?? 7,
-      'HoraInicio': horaCtrl.text.trim(),
+      'HoraInicio': horaCtrl.text.trim().isNotEmpty ? horaCtrl.text.trim() : '08:00',
     };
   }
 
@@ -122,11 +126,15 @@ class _PrescriptionScreenState extends State<PrescriptionScreen> {
         _medicationItems.add(_MedicationFormItem());
       } else {
         for (var m in parsedMeds) {
+          final warnings = (m['warnings'] as List?)?.map((w) => w.toString()).toList() ?? [];
+          final needsConf = m['needs_confirmation'] == true;
           _medicationItems.add(_MedicationFormItem(
             nombre: m['Nombre'] ?? '',
-            frecuencia: m['FrecuenciaHoras'] ?? 8,
-            duracion: m['DuracionDias'] ?? 7,
-            hora: m['HoraInicio'] ?? '08:00',
+            frecuencia: m['FrecuenciaHoras'],
+            duracion: m['DuracionDias'],
+            hora: m['HoraInicio'],
+            needsConfirmation: needsConf,
+            warnings: warnings,
           ));
         }
       }
@@ -184,7 +192,7 @@ class _PrescriptionScreenState extends State<PrescriptionScreen> {
         _populateMedications(meds);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Prescripción procesada. (${meds.length} medicamento(s) detectado(s))'),
+            content: Text('Se reconocieron e ingresaron ${meds.length} medicamento(s).'),
             backgroundColor: const Color(0xFF0284C7),
           ),
         );
@@ -323,7 +331,7 @@ class _PrescriptionScreenState extends State<PrescriptionScreen> {
         _populateMedications(meds);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Documento PDF leído exitosamente. (${meds.length} medicamento(s) detectado(s))'),
+            content: Text('Se reconocieron e ingresaron ${meds.length} medicamento(s).'),
             backgroundColor: const Color(0xFF0284C7),
           ),
         );
@@ -829,9 +837,27 @@ class _PrescriptionScreenState extends State<PrescriptionScreen> {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Text(
-                                  'Medicamento ${idx + 1}',
-                                  style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF0284C7)),
+                                Row(
+                                  children: [
+                                    Text(
+                                      'Medicamento ${idx + 1}',
+                                      style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF0284C7)),
+                                    ),
+                                    if (item.needsConfirmation) ...[
+                                      const SizedBox(width: 8),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: Colors.amber.shade100,
+                                          borderRadius: BorderRadius.circular(6),
+                                        ),
+                                        child: Text(
+                                          'Revisar campos',
+                                          style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.amber.shade900),
+                                        ),
+                                      ),
+                                    ],
+                                  ],
                                 ),
                                 if (_medicationItems.length > 1)
                                   IconButton(

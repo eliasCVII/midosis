@@ -8,7 +8,6 @@ class Usuario(db.Model):
     nombre = db.Column(db.String(100), nullable=False)
     rol = db.Column(db.String(20), nullable=False) # 'paciente', 'cuidador', 'administrador'
 
-    # Relationships
     paciente = db.relationship("Paciente", backref="usuario", uselist=False, cascade="all, delete-orphan")
     cuidador = db.relationship("Cuidador", backref="usuario", uselist=False, cascade="all, delete-orphan")
     administrador = db.relationship("Administrador", backref="usuario", uselist=False, cascade="all, delete-orphan")
@@ -31,7 +30,6 @@ class Paciente(db.Model):
     genero = db.Column(db.String(10), nullable=True)
     codigo_sincronizacion = db.Column(db.String(20), unique=True, nullable=True)
 
-    # Relationships
     recetas = db.relationship("Receta", backref="paciente", lazy=True, cascade="all, delete-orphan")
     calendario = db.relationship("Calendario", backref="paciente", uselist=False, cascade="all, delete-orphan")
     notas = db.relationship("Nota", backref="paciente", lazy=True, cascade="all, delete-orphan")
