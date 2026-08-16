@@ -578,32 +578,29 @@ class _PrescriptionScreenState extends State<PrescriptionScreen> {
             style: TextStyle(fontSize: 14, color: Color(0xFF475569)),
           ),
           const SizedBox(height: 20),
-          Row(
-            children: [
-              Expanded(
-                child: ChoiceChip(
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                ChoiceChip(
                   label: const Text('Ingreso Manual'),
                   selected: _selectedPath == 0,
                   onSelected: (val) => setState(() => _selectedPath = 0),
                 ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: ChoiceChip(
+                const SizedBox(width: 8),
+                ChoiceChip(
                   label: const Text('Escanear Foto'),
                   selected: _selectedPath == 1,
                   onSelected: (val) => setState(() => _selectedPath = 1),
                 ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: ChoiceChip(
-                  label: const Text('Subir PDF'),
+                const SizedBox(width: 8),
+                ChoiceChip(
+                  label: const Text('Leer PDF'),
                   selected: _selectedPath == 2,
                   onSelected: (val) => setState(() => _selectedPath = 2),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
           const SizedBox(height: 24),
 
@@ -702,8 +699,11 @@ class _PrescriptionScreenState extends State<PrescriptionScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    Wrap(
+                      alignment: WrapAlignment.spaceBetween,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: 8,
+                      runSpacing: 8,
                       children: [
                         Text(
                           _selectedPath == 0
@@ -837,15 +837,19 @@ class _PrescriptionScreenState extends State<PrescriptionScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  const Icon(Icons.medication, color: Color(0xFF0284C7)),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Medicamentos Registrados (${_registeredMedications.length})',
-                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-                ],
+              Expanded(
+                child: Row(
+                  children: [
+                    const Icon(Icons.medication, color: Color(0xFF0284C7)),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Medicamentos Registrados (${_registeredMedications.length})',
+                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ],
+                ),
               ),
               IconButton(onPressed: _loadRegisteredMedications, icon: const Icon(Icons.refresh)),
             ],

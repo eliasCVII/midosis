@@ -204,7 +204,7 @@ class _MainScreenState extends State<MainScreen> {
                   destinations: const [
                     NavigationDestination(icon: Icon(Icons.add_task), label: 'Recetas'),
                     NavigationDestination(icon: Icon(Icons.calendar_month), label: 'Calendario'),
-                    NavigationDestination(icon: Icon(Icons.search), label: 'Medicamentos'),
+                    NavigationDestination(icon: Icon(Icons.search), label: 'Buscar'),
                     NavigationDestination(icon: Icon(Icons.note_alt), label: 'Notas'),
                     NavigationDestination(icon: Icon(Icons.sync), label: 'Sincronizar'),
                   ],
