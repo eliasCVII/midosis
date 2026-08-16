@@ -1,34 +1,88 @@
 import io
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 import pypdf
 from app.services.prescription_parser import PrescriptionParser
+from app.services.ocr_service import OcrService
 
 
 class PdfService:
     @staticmethod
-    def process_pdf(pdf_bytes: bytes) -> Dict[str, Any]:
-        """Processes uploaded prescription PDF bytes, extracting text and structured medication fields."""
+    def process_pdf(pdf_bytes: bytes, password: Optional[str] = None) -> tuple[Dict[str, Any], int]:
+        """Processes uploaded prescription PDF bytes, handling password decryption and extracting structured medications."""
         if not pdf_bytes:
             return {"error": "Archivo PDF vacío o no provisto"}, 400
 
         try:
             reader = pypdf.PdfReader(io.BytesIO(pdf_bytes))
+
+            # 1. Handle Encrypted / Password-Protected PDFs
+            if reader.is_encrypted:
+                if not password:
+                    return {
+                        "status": "password_required",
+                        "message": "El documento PDF está protegido con contraseña. Ingrese la clave para desbloquearlo."
+                    }, 200
+
+                # Attempt decryption with provided password
+                decrypt_success = False
+                candidates = [
+                    password.strip(),
+                    password.strip().replace(".", "").replace(" ", ""),
+                    password.strip().replace(".", "").replace(" ", "").replace("-", ""),
+                    password.strip().upper(),
+                    password.strip().lower()
+                ]
+
+                for pwd in candidates:
+                    try:
+                        res = reader.decrypt(pwd)
+                        # In pypdf, decrypt returns PasswordType (1 or 2) or > 0 on success
+                        if res and int(res) > 0:
+                            decrypt_success = True
+                            break
+                    except Exception:
+                        pass
+
+                if not decrypt_success:
+                    return {
+                        "status": "invalid_password",
+                        "error": "Contraseña incorrecta. No se pudo desbloquear el documento PDF."
+                    }, 400
+
+            # 2. Extract Text Across Pages
             text_lines: List[str] = []
-
             for page in reader.pages:
-                text = page.extract_text()
-                if text:
-                    for line in text.splitlines():
-                        if line.strip():
-                            text_lines.append(line.strip())
+                try:
+                    text = page.extract_text()
+                    if text:
+                        for line in text.splitlines():
+                            clean = line.strip()
+                            if clean:
+                                text_lines.append(clean)
+                except Exception:
+                    pass
 
-            raw_text = "\n".join(text_lines)
+            # 3. Fallback: If no direct digital text found, check for embedded scanned images in pages
+            if not text_lines:
+                for page in reader.pages:
+                    try:
+                        images = getattr(page, 'images', [])
+                        for img in images:
+                            try:
+                                ocr_res, status = OcrService.process_image(img.data)
+                                if status == 200 and ocr_res.get("medications"):
+                                    return ocr_res, 200
+                            except Exception:
+                                pass
+                    except Exception:
+                        pass
 
             if not text_lines:
                 return {
-                    "error": "Archivos inválidos: El documento PDF no contiene texto legible o está dañado"
+                    "error": "Archivos inválidos: El documento PDF no contiene texto legible ni imágenes procesables o está dañado"
                 }, 400
 
+            raw_text = "\n".join(text_lines)
             parsed_meds = PrescriptionParser.parse_text_lines(text_lines)
 
             return {

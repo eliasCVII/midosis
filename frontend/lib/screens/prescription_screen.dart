@@ -202,6 +202,79 @@ class _PrescriptionScreenState extends State<PrescriptionScreen> {
     }
   }
 
+  Future<String?> _showPdfPasswordDialog({bool isRetry = false}) async {
+    final pwdCtrl = TextEditingController();
+    bool obscureText = true;
+
+    return showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogCtx) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              title: const Row(
+                children: [
+                  Icon(Icons.lock, color: Color(0xFF0284C7)),
+                  SizedBox(width: 8),
+                  Text('Documento Protegido', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                ],
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    isRetry
+                        ? 'Contraseña incorrecta. Por favor intente nuevamente:'
+                        : 'Este documento PDF está protegido con contraseña. Ingrese la clave para desbloquearlo:',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: isRetry ? Colors.red.shade700 : const Color(0xFF64748B),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  TextField(
+                    controller: pwdCtrl,
+                    obscureText: obscureText,
+                    autofocus: true,
+                    enableSuggestions: false,
+                    autocorrect: false,
+                    decoration: InputDecoration(
+                      labelText: 'Contraseña',
+                      hintText: '••••••••',
+                      border: const OutlineInputBorder(),
+                      suffixIcon: IconButton(
+                        icon: Icon(obscureText ? Icons.visibility : Icons.visibility_off),
+                        onPressed: () => setDialogState(() => obscureText = !obscureText),
+                      ),
+                    ),
+                    onSubmitted: (val) => Navigator.pop(dialogCtx, val.trim()),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogCtx, null),
+                  child: const Text('Cancelar', style: TextStyle(color: Colors.grey)),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF0284C7),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  onPressed: () => Navigator.pop(dialogCtx, pwdCtrl.text.trim()),
+                  child: const Text('Desbloquear', style: TextStyle(color: Colors.white)),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
   Future<void> _pickAndProcessPdf() async {
     try {
       final result = await FilePicker.platform.pickFiles(
@@ -219,10 +292,28 @@ class _PrescriptionScreenState extends State<PrescriptionScreen> {
         _isProcessingFile = true;
       });
 
-      final response = await ApiService.readPrescriptionPdf(
+      var response = await ApiService.readPrescriptionPdf(
         bytes: file.bytes!,
         filename: file.name,
       );
+
+      // Handle Password-Protected PDF
+      while (mounted && (response['status'] == 'password_required' || response['status'] == 'invalid_password')) {
+        setState(() => _isProcessingFile = false);
+        final isRetry = response['status'] == 'invalid_password';
+        final password = await _showPdfPasswordDialog(isRetry: isRetry);
+        if (password == null || password.isEmpty) {
+          // User cancelled
+          return;
+        }
+
+        setState(() => _isProcessingFile = true);
+        response = await ApiService.readPrescriptionPdf(
+          bytes: file.bytes!,
+          filename: file.name,
+          password: password,
+        );
+      }
 
       setState(() => _isProcessingFile = false);
       if (!mounted) return;
