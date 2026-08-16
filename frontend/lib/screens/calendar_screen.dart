@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/models.dart';
 import '../services/api_service.dart';
+import '../services/auth_service.dart';
 
 class CalendarScreen extends StatefulWidget {
   const CalendarScreen({super.key});
@@ -20,11 +21,20 @@ class _CalendarScreenState extends State<CalendarScreen> {
   void initState() {
     super.initState();
     _loadCalendar();
+    AuthService.currentUserNotifier.addListener(_loadCalendar);
+  }
+
+  @override
+  void dispose() {
+    AuthService.currentUserNotifier.removeListener(_loadCalendar);
+    super.dispose();
   }
 
   Future<void> _loadCalendar() async {
     setState(() => _isLoading = true);
-    final items = await ApiService.getCalendar(pacienteId: 'demo');
+    final patientId = AuthService.currentPacienteId;
+    final items = await ApiService.getCalendar(pacienteId: patientId);
+    if (!mounted) return;
     setState(() {
       _items = items;
       _isLoading = false;
@@ -164,59 +174,65 @@ class _CalendarScreenState extends State<CalendarScreen> {
           ),
           actionsAlignment: MainAxisAlignment.center,
           actions: [
-            Column(
-              children: [
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
-                  alignment: WrapAlignment.center,
-                  children: [
-                    ElevatedButton.icon(
-                      icon: const Icon(Icons.access_time, size: 16),
-                      label: const Text('Modificar Horario'),
-                      onPressed: () {
-                        Navigator.pop(ctx);
-                        _showModifyScheduleDialog(item);
-                      },
-                    ),
-                    ElevatedButton.icon(
-                      icon: const Icon(Icons.repeat, size: 16),
-                      label: const Text('Modificar Frecuencia'),
-                      onPressed: () {
-                        Navigator.pop(ctx);
-                        _showModifyFrequencyDialog(item);
-                      },
-                    ),
-                    ElevatedButton.icon(
-                      icon: const Icon(Icons.date_range, size: 16),
-                      label: const Text('Modificar Duración'),
-                      onPressed: () {
-                        Navigator.pop(ctx);
-                        _showModifyDurationDialog(item);
-                      },
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    TextButton.icon(
-                      icon: const Icon(Icons.delete, color: Colors.red),
-                      label: const Text('Eliminar', style: TextStyle(color: Colors.red)),
-                      onPressed: () {
-                        Navigator.pop(ctx);
-                        _deleteItem(item);
-                      },
-                    ),
-                    TextButton(
-                      onPressed: () => Navigator.pop(ctx),
-                      child: const Text('Cerrar'),
-                    ),
-                  ],
-                )
-              ],
-            )
+            if (AuthService.isCaregiver)
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Cerrar'),
+              )
+            else
+              Column(
+                children: [
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    alignment: WrapAlignment.center,
+                    children: [
+                      ElevatedButton.icon(
+                        icon: const Icon(Icons.access_time, size: 16),
+                        label: const Text('Modificar Horario'),
+                        onPressed: () {
+                          Navigator.pop(ctx);
+                          _showModifyScheduleDialog(item);
+                        },
+                      ),
+                      ElevatedButton.icon(
+                        icon: const Icon(Icons.repeat, size: 16),
+                        label: const Text('Modificar Frecuencia'),
+                        onPressed: () {
+                          Navigator.pop(ctx);
+                          _showModifyFrequencyDialog(item);
+                        },
+                      ),
+                      ElevatedButton.icon(
+                        icon: const Icon(Icons.date_range, size: 16),
+                        label: const Text('Modificar Duración'),
+                        onPressed: () {
+                          Navigator.pop(ctx);
+                          _showModifyDurationDialog(item);
+                        },
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      TextButton.icon(
+                        icon: const Icon(Icons.delete, color: Colors.red),
+                        label: const Text('Eliminar', style: TextStyle(color: Colors.red)),
+                        onPressed: () {
+                          Navigator.pop(ctx);
+                          _deleteItem(item);
+                        },
+                      ),
+                      TextButton(
+                        onPressed: () => Navigator.pop(ctx),
+                        child: const Text('Cerrar'),
+                      ),
+                    ],
+                  )
+                ],
+              )
           ],
         );
       },
@@ -237,7 +253,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
           ElevatedButton(
             onPressed: () async {
-              final ok = await ApiService.modifySchedule('demo', item.idItemCalendario, ctrl.text.trim());
+              final ok = await ApiService.modifySchedule(AuthService.currentPacienteId, item.idItemCalendario, ctrl.text.trim());
               if (!mounted) return;
               Navigator.pop(ctx);
               if (ok) _loadCalendar();
@@ -266,7 +282,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
             onPressed: () async {
               final val = int.tryParse(ctrl.text.trim());
               if (val != null && val > 0) {
-                final ok = await ApiService.modifyFrequency('demo', item.idItemCalendario, val);
+                final ok = await ApiService.modifyFrequency(AuthService.currentPacienteId, item.idItemCalendario, val);
                 if (!mounted) return;
                 Navigator.pop(ctx);
                 if (ok) _loadCalendar();
@@ -296,7 +312,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
             onPressed: () async {
               final val = int.tryParse(ctrl.text.trim());
               if (val != null && val > 0) {
-                final ok = await ApiService.modifyDuration('demo', item.idItemCalendario, val);
+                final ok = await ApiService.modifyDuration(AuthService.currentPacienteId, item.idItemCalendario, val);
                 if (!mounted) return;
                 Navigator.pop(ctx);
                 if (ok) _loadCalendar();
@@ -327,7 +343,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
     );
 
     if (confirm == true) {
-      final ok = await ApiService.deleteItem('demo', item.idItemCalendario);
+      final ok = await ApiService.deleteItem(AuthService.currentPacienteId, item.idItemCalendario);
       if (ok) _loadCalendar();
     }
   }
@@ -609,10 +625,12 @@ class _CalendarScreenState extends State<CalendarScreen> {
                           'Horario(s) hoy: ${daySlots.isNotEmpty ? daySlots.join(", ") : item.horaInicio} (c/${item.frecuenciaHoras}h) • ${item.duracionDias} días',
                           style: const TextStyle(fontSize: 13),
                         ),
-                        trailing: IconButton(
-                          icon: const Icon(Icons.delete_outline, color: Colors.red),
-                          onPressed: () => _deleteItem(item),
-                        ),
+                        trailing: AuthService.isCaregiver
+                            ? const Icon(Icons.info_outline, color: Color(0xFF0284C7))
+                            : IconButton(
+                                icon: const Icon(Icons.delete_outline, color: Colors.red),
+                                onPressed: () => _deleteItem(item),
+                              ),
                       ),
                     );
                   },

@@ -4,6 +4,7 @@ from app.routes.calendar import calendar_bp
 from app.routes.medication import medication_bp
 from app.routes.note import note_bp
 from app.routes.sync import sync_bp
+from app.routes.auth import auth_bp
 
 __all__ = [
     "health_bp",
@@ -12,4 +13,6 @@ __all__ = [
     "medication_bp",
     "note_bp",
     "sync_bp",
+    "auth_bp",
 ]
+

@@ -21,6 +21,7 @@ from app.routes import (
     medication_bp,
     note_bp,
     sync_bp,
+    auth_bp,
 )
 
 def create_app(config_class=Config):
@@ -54,5 +55,6 @@ def create_app(config_class=Config):
     app.register_blueprint(medication_bp)
     app.register_blueprint(note_bp)
     app.register_blueprint(sync_bp)
+    app.register_blueprint(auth_bp)
 
     return app

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import '../models/models.dart';
 import '../services/api_service.dart';
+import '../services/auth_service.dart';
 import '../widgets/region_selection_dialog.dart';
 import '../widgets/cenabast_autocomplete_field.dart';
 
@@ -68,10 +69,12 @@ class _PrescriptionScreenState extends State<PrescriptionScreen> {
   void initState() {
     super.initState();
     _loadRegisteredMedications();
+    AuthService.currentUserNotifier.addListener(_loadRegisteredMedications);
   }
 
   @override
   void dispose() {
+    AuthService.currentUserNotifier.removeListener(_loadRegisteredMedications);
     for (var item in _medicationItems) {
       item.dispose();
     }
@@ -80,7 +83,9 @@ class _PrescriptionScreenState extends State<PrescriptionScreen> {
 
   Future<void> _loadRegisteredMedications() async {
     setState(() => _isLoadingList = true);
-    final items = await ApiService.getCalendar(pacienteId: 'demo');
+    final patientId = AuthService.currentPacienteId;
+    final items = await ApiService.getCalendar(pacienteId: patientId);
+    if (!mounted) return;
     setState(() {
       _registeredMedications = items;
       _isLoadingList = false;
@@ -260,6 +265,7 @@ class _PrescriptionScreenState extends State<PrescriptionScreen> {
       final result = await ApiService.registerPrescription(
         medications: medicationsPayload,
         metodoIngreso: metodo,
+        pacienteId: AuthService.currentPacienteId,
       );
 
       setState(() => _isSubmitting = false);
@@ -329,7 +335,7 @@ class _PrescriptionScreenState extends State<PrescriptionScreen> {
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
           ElevatedButton(
             onPressed: () async {
-              final ok = await ApiService.modifySchedule('demo', item.idItemCalendario, ctrl.text.trim());
+              final ok = await ApiService.modifySchedule(AuthService.currentPacienteId, item.idItemCalendario, ctrl.text.trim());
               if (!mounted) return;
               Navigator.pop(ctx);
               if (ok) _loadRegisteredMedications();
@@ -358,7 +364,7 @@ class _PrescriptionScreenState extends State<PrescriptionScreen> {
             onPressed: () async {
               final val = int.tryParse(ctrl.text.trim());
               if (val != null && val > 0) {
-                final ok = await ApiService.modifyFrequency('demo', item.idItemCalendario, val);
+                final ok = await ApiService.modifyFrequency(AuthService.currentPacienteId, item.idItemCalendario, val);
                 if (!mounted) return;
                 Navigator.pop(ctx);
                 if (ok) _loadRegisteredMedications();
@@ -388,7 +394,7 @@ class _PrescriptionScreenState extends State<PrescriptionScreen> {
             onPressed: () async {
               final val = int.tryParse(ctrl.text.trim());
               if (val != null && val > 0) {
-                final ok = await ApiService.modifyDuration('demo', item.idItemCalendario, val);
+                final ok = await ApiService.modifyDuration(AuthService.currentPacienteId, item.idItemCalendario, val);
                 if (!mounted) return;
                 Navigator.pop(ctx);
                 if (ok) _loadRegisteredMedications();
@@ -451,59 +457,65 @@ class _PrescriptionScreenState extends State<PrescriptionScreen> {
           ),
           actionsAlignment: MainAxisAlignment.center,
           actions: [
-            Column(
-              children: [
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
-                  alignment: WrapAlignment.center,
-                  children: [
-                    ElevatedButton.icon(
-                      icon: const Icon(Icons.access_time, size: 16),
-                      label: const Text('Modificar Horario'),
-                      onPressed: () {
-                        Navigator.pop(ctx);
-                        _showModifyScheduleDialog(item);
-                      },
-                    ),
-                    ElevatedButton.icon(
-                      icon: const Icon(Icons.repeat, size: 16),
-                      label: const Text('Modificar Frecuencia'),
-                      onPressed: () {
-                        Navigator.pop(ctx);
-                        _showModifyFrequencyDialog(item);
-                      },
-                    ),
-                    ElevatedButton.icon(
-                      icon: const Icon(Icons.date_range, size: 16),
-                      label: const Text('Modificar Duración'),
-                      onPressed: () {
-                        Navigator.pop(ctx);
-                        _showModifyDurationDialog(item);
-                      },
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    TextButton.icon(
-                      icon: const Icon(Icons.delete, color: Colors.red),
-                      label: const Text('Eliminar', style: TextStyle(color: Colors.red)),
-                      onPressed: () {
-                        Navigator.pop(ctx);
-                        _confirmDeleteMedication(item);
-                      },
-                    ),
-                    TextButton(
-                      onPressed: () => Navigator.pop(ctx),
-                      child: const Text('Cerrar'),
-                    ),
-                  ],
-                )
-              ],
-            )
+            if (AuthService.isCaregiver)
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Cerrar'),
+              )
+            else
+              Column(
+                children: [
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    alignment: WrapAlignment.center,
+                    children: [
+                      ElevatedButton.icon(
+                        icon: const Icon(Icons.access_time, size: 16),
+                        label: const Text('Modificar Horario'),
+                        onPressed: () {
+                          Navigator.pop(ctx);
+                          _showModifyScheduleDialog(item);
+                        },
+                      ),
+                      ElevatedButton.icon(
+                        icon: const Icon(Icons.repeat, size: 16),
+                        label: const Text('Modificar Frecuencia'),
+                        onPressed: () {
+                          Navigator.pop(ctx);
+                          _showModifyFrequencyDialog(item);
+                        },
+                      ),
+                      ElevatedButton.icon(
+                        icon: const Icon(Icons.date_range, size: 16),
+                        label: const Text('Modificar Duración'),
+                        onPressed: () {
+                          Navigator.pop(ctx);
+                          _showModifyDurationDialog(item);
+                        },
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      TextButton.icon(
+                        icon: const Icon(Icons.delete, color: Colors.red),
+                        label: const Text('Eliminar', style: TextStyle(color: Colors.red)),
+                        onPressed: () {
+                          Navigator.pop(ctx);
+                          _confirmDeleteMedication(item);
+                        },
+                      ),
+                      TextButton(
+                        onPressed: () => Navigator.pop(ctx),
+                        child: const Text('Cerrar'),
+                      ),
+                    ],
+                  )
+                ],
+              )
           ],
         );
       },
@@ -531,7 +543,7 @@ class _PrescriptionScreenState extends State<PrescriptionScreen> {
     );
 
     if (confirm == true) {
-      final success = await ApiService.deleteItem('demo', item.idItemCalendario);
+      final success = await ApiService.deleteItem(AuthService.currentPacienteId, item.idItemCalendario);
       if (!mounted) return;
       if (success) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -557,8 +569,8 @@ class _PrescriptionScreenState extends State<PrescriptionScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'Registrar Receta Médica',
-            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+            'Registro de Receta Médica',
+            style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
           ),
           const SizedBox(height: 8),
           const Text(
@@ -906,10 +918,12 @@ class _PrescriptionScreenState extends State<PrescriptionScreen> {
                               'Hora: ${item.horaInicio} (c/${item.frecuenciaHoras}h) • ${item.duracionDias} días',
                               style: const TextStyle(fontSize: 13),
                             ),
-                            trailing: IconButton(
-                              icon: const Icon(Icons.delete_outline, color: Colors.red),
-                              onPressed: () => _confirmDeleteMedication(item),
-                            ),
+                            trailing: AuthService.isCaregiver
+                                ? const Icon(Icons.info_outline, color: Color(0xFF0284C7))
+                                : IconButton(
+                                    icon: const Icon(Icons.delete_outline, color: Colors.red),
+                                    onPressed: () => _confirmDeleteMedication(item),
+                                  ),
                           ),
                         );
                       },

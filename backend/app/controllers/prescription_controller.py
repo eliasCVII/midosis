@@ -66,7 +66,7 @@ class PrescriptionController:
                     id_usuario=default_user.id_usuario,
                     edad=65,
                     genero="M",
-                    codigo_sincronizacion="MIDOSIS1"
+                    codigo_sincronizacion="K7A-6AT"
                 )
                 db.session.add(paciente)
                 db.session.commit()

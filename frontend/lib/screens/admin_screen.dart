@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/models.dart';
 import '../services/api_service.dart';
+import '../services/auth_service.dart';
 
 class AdminScreen extends StatefulWidget {
   const AdminScreen({super.key});
@@ -10,39 +11,14 @@ class AdminScreen extends StatefulWidget {
 }
 
 class _AdminScreenState extends State<AdminScreen> {
-  bool _isLoggedIn = false;
-  bool _isLoading = false;
-
-  final TextEditingController _emailCtrl = TextEditingController();
-  final TextEditingController _passCtrl = TextEditingController();
   final TextEditingController _searchCtrl = TextEditingController();
-
   List<MedicamentoModel> _medications = [];
   bool _isSearching = false;
 
   @override
-  void initState() {
-    super.initState();
-  }
-
-  Future<void> _loginAdmin() async {
-    final email = _emailCtrl.text.trim();
-    final pass = _passCtrl.text.trim();
-
-    if (email.isEmpty || pass.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Ingrese sus credenciales de administrador')),
-      );
-      return;
-    }
-
-    setState(() => _isLoading = true);
-    await Future.delayed(const Duration(milliseconds: 500));
-    setState(() {
-      _isLoading = false;
-      _isLoggedIn = true;
-      _medications = [];
-    });
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
   }
 
   Future<void> _loadMedications([String query = '']) async {
@@ -57,6 +33,7 @@ class _AdminScreenState extends State<AdminScreen> {
 
     setState(() => _isSearching = true);
     final results = await ApiService.getMedications(query: cleanQuery);
+    if (!mounted) return;
     setState(() {
       _medications = results;
       _isSearching = false;
@@ -103,18 +80,18 @@ class _AdminScreenState extends State<AdminScreen> {
                   controller: descCtrl,
                   maxLines: 3,
                   decoration: const InputDecoration(
-                    hintText: 'Ej: Tomar preferentemente después de las comidas con abundante agua...',
+                    hintText: 'Ingrese descripción detallada o recomendaciones de consumo...',
                     border: OutlineInputBorder(),
                   ),
                 ),
                 const SizedBox(height: 16),
-                const Text('⚠️ Efectos Secundarios / Advertencias:', style: TextStyle(fontWeight: FontWeight.bold)),
+                const Text('⚠️ Efectos Secundarios y Advertencias:', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.amber)),
                 const SizedBox(height: 6),
                 TextFormField(
                   controller: efectosCtrl,
                   maxLines: 3,
                   decoration: const InputDecoration(
-                    hintText: 'Ej: Puede causar somnolencia leve o malestar estomacal en pacientes sensibles...',
+                    hintText: 'Ingrese posibles reacciones adversas o contraindicaciones...',
                     border: OutlineInputBorder(),
                   ),
                 ),
@@ -126,10 +103,11 @@ class _AdminScreenState extends State<AdminScreen> {
               onPressed: () => Navigator.pop(ctx),
               child: const Text('Cancelar'),
             ),
-            ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0284C7)),
-              icon: const Icon(Icons.save, color: Colors.white, size: 18),
-              label: const Text('Guardar Cambios', style: TextStyle(color: Colors.white)),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF0284C7),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
               onPressed: () async {
                 final newDesc = descCtrl.text.trim().isEmpty ? 'Información del medicamento' : descCtrl.text.trim();
                 final newEfectos = efectosCtrl.text.trim().isEmpty ? 'No registrados' : efectosCtrl.text.trim();
@@ -146,17 +124,18 @@ class _AdminScreenState extends State<AdminScreen> {
                 if (success) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: Text('Información de "${med.nombre}" actualizada correctamente.'),
-                      backgroundColor: const Color(0xFF0284C7),
+                      content: Text('Medicamento "${med.nombre}" actualizado exitosamente.'),
+                      backgroundColor: Colors.green.shade700,
                     ),
                   );
                   _loadMedications(_searchCtrl.text.trim());
                 } else {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Error al actualizar la información del medicamento.')),
+                    const SnackBar(content: Text('Error al actualizar el medicamento')),
                   );
                 }
               },
+              child: const Text('Guardar Cambios', style: TextStyle(color: Colors.white)),
             ),
           ],
         );
@@ -167,8 +146,8 @@ class _AdminScreenState extends State<AdminScreen> {
   Future<void> _reimportCenabast() async {
     setState(() => _isSearching = true);
     final res = await ApiService.importCenabast();
-    setState(() => _isSearching = false);
     if (!mounted) return;
+    setState(() => _isSearching = false);
 
     if (res['status'] == 'success') {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -187,82 +166,6 @@ class _AdminScreenState extends State<AdminScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (!_isLoggedIn) {
-      return Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24.0),
-          child: Container(
-            constraints: const BoxConstraints(maxWidth: 450),
-            child: Card(
-              elevation: 3,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-              child: Padding(
-                padding: const EdgeInsets.all(28.0),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const CircleAvatar(
-                      radius: 36,
-                      backgroundColor: Color(0xFFE0F2FE),
-                      child: Icon(Icons.admin_panel_settings, size: 40, color: Color(0xFF0284C7)),
-                    ),
-                    const SizedBox(height: 16),
-                    const Text(
-                      'Acceso Administrador',
-                      style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
-                    ),
-                    const SizedBox(height: 6),
-                    const Text(
-                      'Gestión central del catálogo de medicamentos CENABAST',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 13, color: Color(0xFF64748B)),
-                    ),
-                    const SizedBox(height: 24),
-                    TextFormField(
-                      controller: _emailCtrl,
-                      decoration: const InputDecoration(
-                        labelText: 'Correo electrónico / Usuario',
-                        prefixIcon: Icon(Icons.email),
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _passCtrl,
-                      obscureText: true,
-                      decoration: const InputDecoration(
-                        labelText: 'Contraseña',
-                        prefixIcon: Icon(Icons.lock),
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 48,
-                      child: ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF0284C7),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        ),
-                        onPressed: _isLoading ? null : _loginAdmin,
-                        icon: _isLoading
-                            ? const SizedBox.shrink()
-                            : const Icon(Icons.login, color: Colors.white),
-                        label: _isLoading
-                            ? const CircularProgressIndicator(color: Colors.white)
-                            : const Text('Iniciar Sesión Administrador', style: TextStyle(fontSize: 16, color: Colors.white)),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      );
-    }
-
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20.0),
       child: Column(
@@ -290,7 +193,7 @@ class _AdminScreenState extends State<AdminScreen> {
                   ),
                   const SizedBox(width: 8),
                   OutlinedButton.icon(
-                    onPressed: () => setState(() => _isLoggedIn = false),
+                    onPressed: () => AuthService.signOut(),
                     icon: const Icon(Icons.logout, size: 16, color: Colors.red),
                     label: const Text('Cerrar Sesión', style: TextStyle(color: Colors.red)),
                   ),
@@ -310,138 +213,174 @@ class _AdminScreenState extends State<AdminScreen> {
             elevation: 1,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Row(
-                children: [
-                  const Icon(Icons.search, color: Color(0xFF0284C7)),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: TextField(
-                      controller: _searchCtrl,
-                      onChanged: (val) => _loadMedications(val),
-                      decoration: const InputDecoration(
-                        hintText: 'Buscar por nombre de medicamento (mínimo 2 letras)...',
-                        border: InputBorder.none,
-                      ),
-                      onSubmitted: (val) => _loadMedications(val.trim()),
-                    ),
-                  ),
-                  ElevatedButton(
-                    style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0284C7)),
-                    onPressed: () => _loadMedications(_searchCtrl.text.trim()),
-                    child: const Text('Buscar', style: TextStyle(color: Colors.white)),
-                  ),
-                ],
+              padding: const EdgeInsets.all(12.0),
+              child: TextField(
+                controller: _searchCtrl,
+                onChanged: _loadMedications,
+                decoration: InputDecoration(
+                  labelText: 'Buscar medicamento en catálogo CENABAST (mínimo 2 letras)',
+                  prefixIcon: const Icon(Icons.search, color: Color(0xFF0284C7)),
+                  suffixIcon: _searchCtrl.text.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(Icons.clear),
+                          onPressed: () {
+                            _searchCtrl.clear();
+                            _loadMedications('');
+                          },
+                        )
+                      : null,
+                  border: const OutlineInputBorder(),
+                ),
               ),
             ),
           ),
           const SizedBox(height: 16),
 
+          // RESULTS LIST
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Resultados del Catálogo (${_medications.length})',
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                'Resultados de búsqueda (${_medications.length})',
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
-              if (_isSearching) const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+              if (_isSearching)
+                const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
             ],
           ),
           const SizedBox(height: 12),
 
-          _medications.isEmpty && !_isSearching
-              ? Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(32),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade50,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.grey.shade200),
+          if (_searchCtrl.text.trim().length < 2)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(32),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade50,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.grey.shade200),
+              ),
+              child: const Column(
+                children: [
+                  Icon(Icons.search, size: 40, color: Color(0xFF94A3B8)),
+                  SizedBox(height: 8),
+                  Text(
+                    'Escriba al menos 2 caracteres arriba para buscar y editar medicamentos.',
+                    style: TextStyle(color: Color(0xFF64748B), fontSize: 14),
                   ),
-                  child: const Center(
-                    child: Text(
-                      'Ingrese al menos 2 letras (ej: "Para", "Amo", "Ibu") en el buscador para filtrar y editar medicamentos.',
-                      style: TextStyle(color: Color(0xFF64748B)),
-                      textAlign: TextAlign.center,
-                    ),
+                ],
+              ),
+            )
+          else if (_medications.isEmpty && !_isSearching)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(32),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade50,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.grey.shade200),
+              ),
+              child: const Column(
+                children: [
+                  Icon(Icons.medication_outlined, size: 40, color: Color(0xFF94A3B8)),
+                  SizedBox(height: 8),
+                  Text(
+                    'No se encontraron medicamentos en el catálogo CENABAST con ese nombre.',
+                    style: TextStyle(color: Color(0xFF64748B), fontSize: 14),
                   ),
-                )
-              : ListView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: _medications.length,
-                  itemBuilder: (ctx, idx) {
-                    final med = _medications[idx];
-                    final hasDesc = med.descripcion.isNotEmpty && med.descripcion != 'Información del medicamento';
-                    final hasEfectos = med.efectosSecundarios.isNotEmpty && med.efectosSecundarios != 'No registrados';
+                ],
+              ),
+            )
+          else
+            ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: _medications.length,
+              itemBuilder: (ctx, idx) {
+                final med = _medications[idx];
+                final hasDesc = med.descripcion.isNotEmpty && med.descripcion != 'Información del medicamento';
+                final hasEfectos = med.efectosSecundarios.isNotEmpty && med.efectosSecundarios != 'No registrados';
 
-                    return Card(
-                      margin: const EdgeInsets.only(bottom: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      child: Padding(
-                        padding: const EdgeInsets.all(16.0),
-                        child: Column(
+                return Card(
+                  margin: const EdgeInsets.only(bottom: 10),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  elevation: 2,
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Expanded(
-                                  child: Text(
+                            const CircleAvatar(
+                              backgroundColor: Color(0xFFE0F2FE),
+                              child: Icon(Icons.medication, color: Color(0xFF0284C7)),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
                                     med.nombre,
-                                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF0F172A)),
                                   ),
-                                ),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                  decoration: BoxDecoration(
-                                    color: (hasDesc || hasEfectos) ? const Color(0xFFE0F2FE) : Colors.grey.shade200,
-                                    borderRadius: BorderRadius.circular(8),
+                                  Text(
+                                    'Código: ${med.idMedicamento}',
+                                    style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
                                   ),
-                                  child: Text(
-                                    (hasDesc || hasEfectos) ? 'Personalizado' : 'Sin editar',
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.bold,
-                                      color: (hasDesc || hasEfectos) ? const Color(0xFF0284C7) : Colors.grey.shade700,
-                                    ),
-                                  ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
-                            const SizedBox(height: 8),
-                            Text('ID: ${med.idMedicamento}', style: const TextStyle(fontSize: 11, color: Colors.grey)),
-                            const SizedBox(height: 8),
-                            const Text('📖 Descripción:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                            Text(
-                              hasDesc ? med.descripcion : 'Sin descripción personalizada',
-                              style: TextStyle(fontSize: 13, color: hasDesc ? Colors.black87 : Colors.grey),
+                            ElevatedButton.icon(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF0284C7),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              ),
+                              onPressed: () => _showEditDialog(med),
+                              icon: const Icon(Icons.edit, size: 16, color: Colors.white),
+                              label: const Text('Editar', style: TextStyle(color: Colors.white, fontSize: 13)),
                             ),
-                            const SizedBox(height: 6),
-                            const Text('⚠️ Efectos Secundarios:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.amber)),
-                            Text(
-                              hasEfectos ? med.efectosSecundarios : 'Sin efectos secundarios personalizados',
-                              style: TextStyle(fontSize: 13, color: hasEfectos ? Colors.black87 : Colors.grey),
-                            ),
-                            const SizedBox(height: 12),
-                            Align(
-                              alignment: Alignment.centerRight,
-                              child: ElevatedButton.icon(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFF0284C7),
-                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                                ),
-                                icon: const Icon(Icons.edit, size: 16, color: Colors.white),
-                                label: const Text('Editar Información', style: TextStyle(color: Colors.white)),
-                                onPressed: () => _showEditDialog(med),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        const Divider(),
+                        const SizedBox(height: 6),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('📖 Descripción: ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                            Expanded(
+                              child: Text(
+                                hasDesc ? med.descripcion : 'Sin descripción personalizada',
+                                style: TextStyle(fontSize: 13, color: hasDesc ? Colors.black87 : Colors.grey),
                               ),
                             ),
                           ],
                         ),
-                      ),
-                    );
-                  },
-                ),
+                        const SizedBox(height: 6),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('⚠️ Efectos: ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.amber)),
+                            Expanded(
+                              child: Text(
+                                hasEfectos ? med.efectosSecundarios : 'No registrados',
+                                style: TextStyle(fontSize: 13, color: hasEfectos ? Colors.black87 : Colors.grey),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
         ],
       ),
     );

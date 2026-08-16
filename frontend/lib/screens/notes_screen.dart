@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/models.dart';
 import '../services/api_service.dart';
+import '../services/auth_service.dart';
 
 class NotesScreen extends StatefulWidget {
   const NotesScreen({super.key});
@@ -21,12 +22,24 @@ class _NotesScreenState extends State<NotesScreen> {
   void initState() {
     super.initState();
     _loadNotesAndCalendar();
+    AuthService.currentUserNotifier.addListener(_loadNotesAndCalendar);
+    AuthService.linkedPatientIdNotifier.addListener(_loadNotesAndCalendar);
+  }
+
+  @override
+  void dispose() {
+    AuthService.currentUserNotifier.removeListener(_loadNotesAndCalendar);
+    AuthService.linkedPatientIdNotifier.removeListener(_loadNotesAndCalendar);
+    _descCtrl.dispose();
+    super.dispose();
   }
 
   Future<void> _loadNotesAndCalendar() async {
     setState(() => _isLoading = true);
-    final notes = await ApiService.getNotes('demo');
-    final calItems = await ApiService.getCalendar(pacienteId: 'demo');
+    final patientId = AuthService.currentPacienteId;
+    final notes = await ApiService.getNotes(patientId);
+    final calItems = await ApiService.getCalendar(pacienteId: patientId);
+    if (!mounted) return;
     setState(() {
       _notes = notes;
       _calendarItems = calItems;
@@ -41,8 +54,9 @@ class _NotesScreenState extends State<NotesScreen> {
       return;
     }
 
+    final patientId = AuthService.currentPacienteId;
     final ok = await ApiService.addNote(
-      pacienteId: 'demo',
+      pacienteId: patientId,
       medicamentoId: _selectedMedicationId,
       descripcion: text,
     );
@@ -50,6 +64,7 @@ class _NotesScreenState extends State<NotesScreen> {
     if (ok) {
       _descCtrl.clear();
       setState(() => _selectedMedicationId = null);
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Nota registrada exitosamente')));
       _loadNotesAndCalendar();
     }
@@ -57,63 +72,84 @@ class _NotesScreenState extends State<NotesScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isCaregiver = AuthService.isCaregiver;
+
     return Padding(
       padding: const EdgeInsets.all(16.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Registrar Notas de Efectos Secundarios', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+          Text(
+            isCaregiver ? 'Notas de Síntomas del Paciente' : 'Registrar Notas de Efectos Secundarios',
+            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+          ),
           const SizedBox(height: 12),
-          Card(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('Asociar a Medicamento (Opcional):', style: TextStyle(fontWeight: FontWeight.bold)),
-                  DropdownButton<String?>(
-                    isExpanded: true,
-                    value: _selectedMedicationId,
-                    hint: const Text('Ninguno específico'),
-                    items: [
-                      const DropdownMenuItem<String?>(value: null, child: Text('Ninguno específico')),
-                      ..._calendarItems.map(
-                        (item) => DropdownMenuItem<String?>(
-                          value: item.idMedicamento,
-                          child: Text(item.nombre),
-                        ),
-                      )
-                    ],
-                    onChanged: (val) => setState(() => _selectedMedicationId = val),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: _descCtrl,
-                    maxLines: 3,
-                    decoration: const InputDecoration(
-                      hintText: 'Describa los efectos secundarios o síntomas observados...',
-                      border: OutlineInputBorder(),
+
+          // Only patient can add new notes (Caregiver is read-only)
+          if (!isCaregiver) ...[
+            Card(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Asociar a Medicamento (Opcional):', style: TextStyle(fontWeight: FontWeight.bold)),
+                    DropdownButton<String?>(
+                      isExpanded: true,
+                      value: _selectedMedicationId,
+                      hint: const Text('Ninguno específico'),
+                      items: [
+                        const DropdownMenuItem<String?>(value: null, child: Text('Ninguno específico')),
+                        ..._calendarItems.map(
+                          (item) => DropdownMenuItem<String?>(
+                            value: item.idMedicamento,
+                            child: Text(item.nombre),
+                          ),
+                        )
+                      ],
+                      onChanged: (val) => setState(() => _selectedMedicationId = val),
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                  ElevatedButton.icon(
-                    onPressed: _addNote,
-                    icon: const Icon(Icons.add_comment),
-                    label: const Text('Guardar Nota'),
-                  )
-                ],
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: _descCtrl,
+                      maxLines: 3,
+                      decoration: const InputDecoration(
+                        hintText: 'Describa los efectos secundarios o síntomas observados...',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0284C7)),
+                      onPressed: _addNote,
+                      icon: const Icon(Icons.add_comment, color: Colors.white),
+                      label: const Text('Guardar Nota', style: TextStyle(color: Colors.white)),
+                    )
+                  ],
+                ),
               ),
             ),
+            const SizedBox(height: 20),
+          ],
+
+          Text(
+            isCaregiver ? 'Historial de Notas Registradas por el Paciente' : 'Mis Notas Registradas',
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
           ),
-          const SizedBox(height: 20),
-          const Text('Mis Notas Registradas', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
           Expanded(
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : _notes.isEmpty
-                    ? const Center(child: Text('No hay notas registradas.'))
+                    ? Center(
+                        child: Text(
+                          isCaregiver
+                              ? 'El paciente no ha registrado notas de efectos secundarios todavía.'
+                              : 'No hay notas registradas.',
+                          style: const TextStyle(color: Color(0xFF64748B)),
+                        ),
+                      )
                     : ListView.builder(
                         itemCount: _notes.length,
                         itemBuilder: (ctx, idx) {

@@ -96,3 +96,56 @@ class NotaModel {
     );
   }
 }
+
+class UsuarioModel {
+  final String idUsuario;
+  final String correo;
+  final String nombre;
+  final String rol;
+  final String? photoUrl;
+
+  UsuarioModel({
+    required this.idUsuario,
+    required this.correo,
+    required this.nombre,
+    required this.rol,
+    this.photoUrl,
+  });
+
+  factory UsuarioModel.fromJson(Map<String, dynamic> json, {String? photoUrl}) {
+    return UsuarioModel(
+      idUsuario: json['IdUsuario'] ?? '',
+      correo: json['Correo'] ?? '',
+      nombre: json['Nombre'] ?? '',
+      rol: json['Rol'] ?? 'paciente',
+      photoUrl: photoUrl,
+    );
+  }
+}
+
+class PacienteModel {
+  final String idPaciente;
+  final String idUsuario;
+  final int? edad;
+  final String? genero;
+  final String? codigoSincronizacion;
+
+  PacienteModel({
+    required this.idPaciente,
+    required this.idUsuario,
+    this.edad,
+    this.genero,
+    this.codigoSincronizacion,
+  });
+
+  factory PacienteModel.fromJson(Map<String, dynamic> json) {
+    return PacienteModel(
+      idPaciente: json['IdPaciente'] ?? '',
+      idUsuario: json['IdUsuario'] ?? '',
+      edad: json['Edad'],
+      genero: json['Genero'],
+      codigoSincronizacion: json['CodigoSincronizacion'],
+    );
+  }
+}
+
