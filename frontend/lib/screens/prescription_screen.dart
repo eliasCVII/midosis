@@ -1,6 +1,7 @@
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
-
 import 'package:file_picker/file_picker.dart';
+import 'package:image_picker/image_picker.dart';
 import '../models/models.dart';
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
@@ -74,11 +75,15 @@ class _PrescriptionScreenState extends State<PrescriptionScreen> {
     super.initState();
     _loadRegisteredMedications();
     AuthService.currentUserNotifier.addListener(_loadRegisteredMedications);
+    AuthService.currentPacienteNotifier.addListener(_loadRegisteredMedications);
+    AuthService.linkedPatientIdNotifier.addListener(_loadRegisteredMedications);
   }
 
   @override
   void dispose() {
     AuthService.currentUserNotifier.removeListener(_loadRegisteredMedications);
+    AuthService.currentPacienteNotifier.removeListener(_loadRegisteredMedications);
+    AuthService.linkedPatientIdNotifier.removeListener(_loadRegisteredMedications);
     for (var item in _medicationItems) {
       item.dispose();
     }
@@ -88,6 +93,14 @@ class _PrescriptionScreenState extends State<PrescriptionScreen> {
   Future<void> _loadRegisteredMedications() async {
     setState(() => _isLoadingList = true);
     final patientId = AuthService.currentPacienteId;
+    if (patientId.isEmpty) {
+      if (!mounted) return;
+      setState(() {
+        _registeredMedications = [];
+        _isLoadingList = false;
+      });
+      return;
+    }
     final items = await ApiService.getCalendar(pacienteId: patientId);
     if (!mounted) return;
     setState(() {
@@ -141,19 +154,27 @@ class _PrescriptionScreenState extends State<PrescriptionScreen> {
     });
   }
 
-  Future<void> _pickAndProcessImage() async {
+  Future<void> _captureFromCamera() async {
+    await _pickImageSource(ImageSource.camera);
+  }
+
+  Future<void> _pickFromGallery() async {
+    await _pickImageSource(ImageSource.gallery);
+  }
+
+  Future<void> _pickImageSource(ImageSource source) async {
     try {
-      final result = await FilePicker.platform.pickFiles(
-        type: FileType.image,
-        allowMultiple: false,
-        withData: true,
+      final ImagePicker picker = ImagePicker();
+      final XFile? photo = await picker.pickImage(
+        source: source,
+        imageQuality: 95,
       );
 
-      if (result == null || result.files.isEmpty || result.files.first.bytes == null) return;
+      if (photo == null) return;
 
-      final file = result.files.first;
-      final imageBytes = file.bytes!;
-      _selectedImageName = file.name;
+      final Uint8List imageBytes = await photo.readAsBytes();
+      final String filename = photo.name.isNotEmpty ? photo.name : 'receta_foto.jpg';
+      _selectedImageName = filename;
 
       if (!mounted) return;
 
@@ -179,10 +200,9 @@ class _PrescriptionScreenState extends State<PrescriptionScreen> {
 
       final response = await ApiService.scanPrescriptionImage(
         bytes: imageBytes,
-        filename: file.name,
+        filename: filename,
         cropBox: cropMap,
       );
-
 
       setState(() => _isProcessingFile = false);
       if (!mounted) return;
@@ -205,7 +225,7 @@ class _PrescriptionScreenState extends State<PrescriptionScreen> {
       setState(() => _isProcessingFile = false);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error al procesar la imagen: $e')),
+        SnackBar(content: Text('Error al capturar la imagen: $e')),
       );
     }
   }
@@ -703,7 +723,7 @@ class _PrescriptionScreenState extends State<PrescriptionScreen> {
           ),
           const SizedBox(height: 24),
 
-          // PATH 1: Escanear Foto (with Image Picker & Drawing Dialog)
+          // PATH 1: Escanear Foto (with Camera Capture & Region Selection Dialog)
           if (_selectedPath == 1) ...[
             Card(
               elevation: 2,
@@ -723,20 +743,71 @@ class _PrescriptionScreenState extends State<PrescriptionScreen> {
                         ),
                       ],
                     ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Toma una foto clara de tu receta médica o selecciónala de tu galería para enmarcar el texto a escanear.',
+                      style: TextStyle(color: Color(0xFF64748B), fontSize: 13),
+                    ),
                     const SizedBox(height: 16),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 48,
-                      child: ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0284C7)),
-                        onPressed: _isProcessingFile ? null : _pickAndProcessImage,
-                        icon: _isProcessingFile
-                            ? const SizedBox.shrink()
-                            : const Icon(Icons.crop_free, color: Colors.white),
-                        label: _isProcessingFile
-                            ? const CircularProgressIndicator(color: Colors.white)
-                            : Text(_selectedImageName == null ? 'Seleccionar Foto y Enmarcar Área' : 'Cambiar Foto ($_selectedImageName)', style: const TextStyle(color: Colors.white)),
+                    if (_selectedImageName != null) ...[
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        margin: const EdgeInsets.only(bottom: 12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFE0F2FE),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.image, size: 18, color: Color(0xFF0284C7)),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Foto capturada: $_selectedImageName',
+                                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF0284C7)),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
+                    ],
+                    Row(
+                      children: [
+                        Expanded(
+                          child: SizedBox(
+                            height: 48,
+                            child: ElevatedButton.icon(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF0284C7),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              ),
+                              onPressed: _isProcessingFile ? null : _captureFromCamera,
+                              icon: _isProcessingFile
+                                  ? const SizedBox.shrink()
+                                  : const Icon(Icons.camera_alt, color: Colors.white),
+                              label: _isProcessingFile
+                                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                                  : const Text('Abrir Cámara', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: SizedBox(
+                            height: 48,
+                            child: OutlinedButton.icon(
+                              style: OutlinedButton.styleFrom(
+                                side: const BorderSide(color: Color(0xFF0284C7)),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              ),
+                              onPressed: _isProcessingFile ? null : _pickFromGallery,
+                              icon: const Icon(Icons.photo_library, color: Color(0xFF0284C7)),
+                              label: const Text('Desde Galería', style: TextStyle(color: Color(0xFF0284C7), fontWeight: FontWeight.bold)),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
