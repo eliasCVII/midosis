@@ -42,32 +42,37 @@ class PrescriptionController:
             if dur <= 0:
                 return {"error": "La duración debe ser mayor a 0 días"}, 400
 
-        id_paciente = data.get("IdPaciente") or "demo"
+        paciente = None
+        if id_paciente:
+            paciente = db.session.get(Paciente, id_paciente)
 
-        paciente = Paciente.query.filter((Paciente.id_paciente == id_paciente) | (Paciente.id_paciente == "demo")).first()
         if not paciente:
-            default_user = Usuario.query.filter_by(correo="paciente.demo@midosis.cl").first()
-            if not default_user:
-                default_user = Usuario(
-                    id_usuario="usuario_demo",
-                    correo="paciente.demo@midosis.cl",
-                    nombre="Paciente Demo",
-                    rol="paciente"
-                )
-                db.session.add(default_user)
-                db.session.flush()
+            if not id_paciente or id_paciente == "demo":
+                paciente = Paciente.query.filter_by(id_paciente="demo").first()
+                if not paciente:
+                    default_user = Usuario.query.filter_by(correo="paciente.demo@midosis.cl").first()
+                    if not default_user:
+                        default_user = Usuario(
+                            id_usuario="usuario_demo",
+                            correo="paciente.demo@midosis.cl",
+                            nombre="Paciente Demo",
+                            rol="paciente"
+                        )
+                        db.session.add(default_user)
+                        db.session.flush()
 
-            paciente = Paciente.query.filter_by(id_usuario=default_user.id_usuario).first()
-            if not paciente:
-                paciente = Paciente(
-                    id_paciente="demo",
-                    id_usuario=default_user.id_usuario,
-                    edad=65,
-                    genero="M",
-                    codigo_sincronizacion="K7A-6AT"
-                )
-                db.session.add(paciente)
-                db.session.commit()
+                    paciente = Paciente(
+                        id_paciente="demo",
+                        id_usuario=default_user.id_usuario,
+                        edad=65,
+                        genero="M",
+                        codigo_sincronizacion="K7A-6AT"
+                    )
+                    db.session.add(paciente)
+                    db.session.commit()
+            else:
+                return {"error": f"Paciente '{id_paciente}' no encontrado"}, 404
+
         id_paciente = paciente.id_paciente
 
         receta_id = str(uuid.uuid4())

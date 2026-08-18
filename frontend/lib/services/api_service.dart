@@ -4,24 +4,29 @@ import 'package:http/http.dart' as http;
 import '../models/models.dart';
 
 class ApiService {
-  static String get baseUrl {
-    if (kIsWeb) {
-      return 'http://127.0.0.1:5001/api';
-    }
-    if (defaultTargetPlatform == TargetPlatform.android) {
-      return 'http://10.0.2.2:5001/api';
-    }
-    return 'http://127.0.0.1:5001/api';
-  }
+  static String _activeBaseUrl = 'http://127.0.0.1:5001/api';
 
-  // Check Backend Health
+  static String get baseUrl => _activeBaseUrl;
+
+  static final List<String> _candidateHosts = [
+    'http://127.0.0.1:5001/api',       // USB adb reverse / local desktop
+    'http://192.168.1.18:5001/api',     // Local Mac Wi-Fi network
+    'http://10.0.2.2:5001/api',         // Android Emulator loopback
+  ];
+
+  // Check Backend Health and Auto-Discover Host
   static Future<bool> checkHealth() async {
-    try {
-      final response = await http.get(Uri.parse('$baseUrl/../health')).timeout(const Duration(seconds: 4));
-      return response.statusCode == 200;
-    } catch (_) {
-      return false;
+    for (final url in _candidateHosts) {
+      try {
+        final healthUrl = url.replaceAll('/api', '/health');
+        final response = await http.get(Uri.parse(healthUrl)).timeout(const Duration(milliseconds: 1500));
+        if (response.statusCode == 200) {
+          _activeBaseUrl = url;
+          return true;
+        }
+      } catch (_) {}
     }
+    return false;
   }
 
   // Register Prescription (Supports multiple medications per prescription)

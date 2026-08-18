@@ -32,10 +32,13 @@ class AuthService {
   static bool get isAdmin => currentUser?.rol == 'administrador';
 
   static String get currentPacienteId {
-    if (isCaregiver && linkedPatientIdNotifier.value != null) {
-      return linkedPatientIdNotifier.value!;
+    if (isCaregiver) {
+      return linkedPatientIdNotifier.value ?? '';
     }
-    return currentPacienteNotifier.value?.idPaciente ?? 'demo';
+    if (isAuthenticated) {
+      return currentPacienteNotifier.value?.idPaciente ?? '';
+    }
+    return 'demo';
   }
 
   /// Sign in using Google Account

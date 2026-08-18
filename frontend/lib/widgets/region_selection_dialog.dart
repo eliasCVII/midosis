@@ -154,25 +154,44 @@ class _RegionSelectionDialogState extends State<RegionSelectionDialog> {
               ),
             ),
             const SizedBox(height: 16),
-            Row(
+            Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 8,
+              runSpacing: 8,
               children: [
                 TextButton(
                   onPressed: () => Navigator.pop(context, 'CANCEL'),
                   child: const Text('Cancelar'),
                 ),
-                const Spacer(),
-                OutlinedButton(
-                  onPressed: () => Navigator.pop(context, 'FULL'),
-                  child: const Text('Escanear Todo'),
-                ),
-                const SizedBox(width: 8),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0284C7)),
-                  onPressed: () {
-                    final cropBox = _getCropBox();
-                    Navigator.pop(context, cropBox ?? 'FULL');
-                  },
-                  child: const Text('Escanear Selección', style: TextStyle(color: Colors.white)),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    OutlinedButton(
+                      style: OutlinedButton.styleFrom(
+                        visualDensity: VisualDensity.compact,
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      ),
+                      onPressed: () => Navigator.pop(context, 'FULL'),
+                      child: const Text('Todo', style: TextStyle(fontSize: 13)),
+                    ),
+                    const SizedBox(width: 8),
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF0284C7),
+                        visualDensity: VisualDensity.compact,
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      ),
+                      onPressed: () {
+                        final cropBox = _getCropBox();
+                        Navigator.pop(context, cropBox ?? 'FULL');
+                      },
+                      child: Text(
+                        _selectionRect != null ? 'Escanear Área' : 'Escanear Foto',
+                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             )

@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 import 'screens/main_screen.dart';
+import 'services/api_service.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  // Auto-discover backend host (USB adb reverse or local Wi-Fi)
+  await ApiService.checkHealth();
   runApp(const MiDosisApp());
 }
 

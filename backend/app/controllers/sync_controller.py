@@ -4,11 +4,12 @@ from app.models import db, Paciente, Calendario
 class SyncController:
     @staticmethod
     def generate_sync_code(id_paciente):
+        if not id_paciente:
+            return {"error": "IdPaciente es requerido"}, 400
+
         paciente = db.session.get(Paciente, id_paciente)
         if not paciente:
-            paciente = Paciente.query.first()
-            if not paciente:
-                return {"error": "Calendario no encontrado"}, 404
+            return {"error": "Paciente no encontrado"}, 404
 
         if not paciente.codigo_sincronizacion:
             raw = str(uuid.uuid4()).replace("-", "").upper()

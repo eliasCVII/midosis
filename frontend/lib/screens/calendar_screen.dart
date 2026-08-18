@@ -22,17 +22,29 @@ class _CalendarScreenState extends State<CalendarScreen> {
     super.initState();
     _loadCalendar();
     AuthService.currentUserNotifier.addListener(_loadCalendar);
+    AuthService.currentPacienteNotifier.addListener(_loadCalendar);
+    AuthService.linkedPatientIdNotifier.addListener(_loadCalendar);
   }
 
   @override
   void dispose() {
     AuthService.currentUserNotifier.removeListener(_loadCalendar);
+    AuthService.currentPacienteNotifier.removeListener(_loadCalendar);
+    AuthService.linkedPatientIdNotifier.removeListener(_loadCalendar);
     super.dispose();
   }
 
   Future<void> _loadCalendar() async {
     setState(() => _isLoading = true);
     final patientId = AuthService.currentPacienteId;
+    if (patientId.isEmpty) {
+      if (!mounted) return;
+      setState(() {
+        _items = [];
+        _isLoading = false;
+      });
+      return;
+    }
     final items = await ApiService.getCalendar(pacienteId: patientId);
     if (!mounted) return;
     setState(() {
@@ -498,34 +510,52 @@ class _CalendarScreenState extends State<CalendarScreen> {
             elevation: 1,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 6.0),
+              child: Wrap(
+                alignment: WrapAlignment.spaceBetween,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: 8,
+                runSpacing: 6,
                 children: [
                   Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      IconButton(icon: const Icon(Icons.chevron_left), onPressed: _previousMonth),
+                      IconButton(
+                        visualDensity: VisualDensity.compact,
+                        icon: const Icon(Icons.chevron_left),
+                        onPressed: _previousMonth,
+                      ),
                       Text(
                         '${_monthsEs[_focusedMonth.month - 1]} ${_focusedMonth.year}',
-                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
                       ),
-                      IconButton(icon: const Icon(Icons.chevron_right), onPressed: _nextMonth),
+                      IconButton(
+                        visualDensity: VisualDensity.compact,
+                        icon: const Icon(Icons.chevron_right),
+                        onPressed: _nextMonth,
+                      ),
                     ],
                   ),
                   Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       ElevatedButton.icon(
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF0284C7),
                           foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          visualDensity: VisualDensity.compact,
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                         ),
-                        icon: const Icon(Icons.today, size: 16),
-                        label: const Text('Hoy'),
+                        icon: const Icon(Icons.today, size: 14),
+                        label: const Text('Hoy', style: TextStyle(fontSize: 12)),
                         onPressed: _goToToday,
                       ),
                       const SizedBox(width: 4),
-                      IconButton(icon: const Icon(Icons.refresh), onPressed: _loadCalendar),
+                      IconButton(
+                        visualDensity: VisualDensity.compact,
+                        icon: const Icon(Icons.refresh, size: 20),
+                        onPressed: _loadCalendar,
+                      ),
                     ],
                   ),
                 ],

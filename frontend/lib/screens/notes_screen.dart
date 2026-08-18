@@ -23,12 +23,14 @@ class _NotesScreenState extends State<NotesScreen> {
     super.initState();
     _loadNotesAndCalendar();
     AuthService.currentUserNotifier.addListener(_loadNotesAndCalendar);
+    AuthService.currentPacienteNotifier.addListener(_loadNotesAndCalendar);
     AuthService.linkedPatientIdNotifier.addListener(_loadNotesAndCalendar);
   }
 
   @override
   void dispose() {
     AuthService.currentUserNotifier.removeListener(_loadNotesAndCalendar);
+    AuthService.currentPacienteNotifier.removeListener(_loadNotesAndCalendar);
     AuthService.linkedPatientIdNotifier.removeListener(_loadNotesAndCalendar);
     _descCtrl.dispose();
     super.dispose();
@@ -37,6 +39,15 @@ class _NotesScreenState extends State<NotesScreen> {
   Future<void> _loadNotesAndCalendar() async {
     setState(() => _isLoading = true);
     final patientId = AuthService.currentPacienteId;
+    if (patientId.isEmpty) {
+      if (!mounted) return;
+      setState(() {
+        _notes = [];
+        _calendarItems = [];
+        _isLoading = false;
+      });
+      return;
+    }
     final notes = await ApiService.getNotes(patientId);
     final calItems = await ApiService.getCalendar(pacienteId: patientId);
     if (!mounted) return;
