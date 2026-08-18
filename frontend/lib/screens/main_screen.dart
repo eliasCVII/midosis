@@ -37,43 +37,46 @@ class _MainScreenState extends State<MainScreen> {
 
         return Scaffold(
           appBar: AppBar(
+            titleSpacing: 12,
             title: Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Container(
-                  padding: const EdgeInsets.all(6),
+                  padding: const EdgeInsets.all(5),
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: const Icon(Icons.medication_liquid, color: Color(0xFF0284C7)),
+                  child: const Icon(Icons.medication_liquid, color: Color(0xFF0284C7), size: 18),
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: 8),
                 const Text(
                   'MiDosis',
-                  style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1, color: Colors.white),
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, letterSpacing: 0.5, color: Colors.white),
                 ),
               ],
             ),
             actions: [
               if (user == null)
                 Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+                  padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
                   child: OutlinedButton.icon(
                     style: OutlinedButton.styleFrom(
                       foregroundColor: Colors.white,
                       side: const BorderSide(color: Colors.white70),
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      visualDensity: VisualDensity.compact,
                     ),
-                    icon: const Icon(Icons.account_circle, size: 18),
-                    label: const Text('Ingresar', style: TextStyle(fontSize: 13)),
+                    icon: const Icon(Icons.account_circle, size: 16),
+                    label: const Text('Ingresar', style: TextStyle(fontSize: 12)),
                     onPressed: () => AuthDialog.show(context),
                   ),
                 )
               else ...[
                 if (!isAdmin) ...[
-                  // Direct Zero-Friction Navbar Role Toggle
+                  // Dynamic Compact Navbar Role Toggle
                   Container(
-                    margin: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
+                    margin: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
                     decoration: BoxDecoration(
                       color: const Color(0x33000000),
                       borderRadius: BorderRadius.circular(20),
@@ -82,65 +85,77 @@ class _MainScreenState extends State<MainScreen> {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        InkWell(
-                          onTap: user.rol == 'paciente'
-                              ? null
-                              : () => AuthService.switchRole('paciente'),
-                          borderRadius: const BorderRadius.horizontal(left: Radius.circular(20)),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                            decoration: BoxDecoration(
-                              color: user.rol == 'paciente' ? Colors.white : Colors.transparent,
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                            child: Row(
-                              children: [
-                                Icon(
-                                  Icons.person,
-                                  size: 14,
-                                  color: user.rol == 'paciente' ? const Color(0xFF0284C7) : Colors.white70,
-                                ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  'Paciente',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: user.rol == 'paciente' ? FontWeight.bold : FontWeight.normal,
+                        Tooltip(
+                          message: 'Cambiar a modo Paciente',
+                          child: InkWell(
+                            onTap: user.rol == 'paciente'
+                                ? null
+                                : () => AuthService.switchRole('paciente'),
+                            borderRadius: const BorderRadius.horizontal(left: Radius.circular(20)),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                              decoration: BoxDecoration(
+                                color: user.rol == 'paciente' ? Colors.white : Colors.transparent,
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.person,
+                                    size: 14,
                                     color: user.rol == 'paciente' ? const Color(0xFF0284C7) : Colors.white70,
                                   ),
-                                ),
-                              ],
+                                  if (user.rol == 'paciente') ...[
+                                    const SizedBox(width: 4),
+                                    const Text(
+                                      'Paciente',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                        color: Color(0xFF0284C7),
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
                             ),
                           ),
                         ),
-                        InkWell(
-                          onTap: user.rol == 'cuidador'
-                              ? null
-                              : () => AuthService.switchRole('cuidador'),
-                          borderRadius: const BorderRadius.horizontal(right: Radius.circular(20)),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                            decoration: BoxDecoration(
-                              color: user.rol == 'cuidador' ? const Color(0xFF10B981) : Colors.transparent,
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                            child: Row(
-                              children: [
-                                Icon(
-                                  Icons.shield_outlined,
-                                  size: 14,
-                                  color: user.rol == 'cuidador' ? Colors.white : Colors.white70,
-                                ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  'Cuidador',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: user.rol == 'cuidador' ? FontWeight.bold : FontWeight.normal,
+                        Tooltip(
+                          message: 'Cambiar a modo Cuidador',
+                          child: InkWell(
+                            onTap: user.rol == 'cuidador'
+                                ? null
+                                : () => AuthService.switchRole('cuidador'),
+                            borderRadius: const BorderRadius.horizontal(right: Radius.circular(20)),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                              decoration: BoxDecoration(
+                                color: user.rol == 'cuidador' ? const Color(0xFF10B981) : Colors.transparent,
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.shield_outlined,
+                                    size: 14,
                                     color: user.rol == 'cuidador' ? Colors.white : Colors.white70,
                                   ),
-                                ),
-                              ],
+                                  if (user.rol == 'cuidador') ...[
+                                    const SizedBox(width: 4),
+                                    const Text(
+                                      'Cuidador',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
                             ),
                           ),
                         ),
