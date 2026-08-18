@@ -5,11 +5,13 @@ from app.models import db, Calendario, ItemCalendario, DetalleReceta
 class CalendarController:
     @staticmethod
     def get_patient_calendar(id_paciente):
+        if not id_paciente:
+            return {"status": "success", "calendario": {"IdCalendario": "empty", "IdPaciente": "", "Items": []}}, 200
+
         calendario = Calendario.query.filter_by(id_paciente=id_paciente).first()
         if not calendario:
-            calendario = Calendario.query.first()
-            if not calendario:
-                return {"status": "success", "calendario": {"IdCalendario": "empty", "IdPaciente": id_paciente, "Items": []}}, 200
+            return {"status": "success", "calendario": {"IdCalendario": "empty", "IdPaciente": id_paciente, "Items": []}}, 200
+
         return {"status": "success", "calendario": calendario.to_dict()}, 200
 
     @staticmethod
@@ -95,4 +97,3 @@ class CalendarController:
             "message": "Duración modificada exitosamente",
             "item": item.to_dict()
         }, 200
-
