@@ -19,7 +19,7 @@ class AuthDialog extends StatefulWidget {
 
 class _AuthDialogState extends State<AuthDialog> {
   bool _isLoading = false;
-  String _selectedRole = 'paciente';
+  String _selectedRole = 'usuario';
   String? _errorMessage;
 
   final TextEditingController _adminEmailCtrl = TextEditingController();
@@ -38,7 +38,7 @@ class _AuthDialogState extends State<AuthDialog> {
       _errorMessage = null;
     });
 
-    final res = await AuthService.signInWithGoogle(role: _selectedRole);
+    final res = await AuthService.signInWithGoogle(role: 'paciente');
 
     if (!mounted) return;
     setState(() => _isLoading = false);
@@ -280,18 +280,25 @@ class _AuthDialogState extends State<AuthDialog> {
               Text(
                 isAdmin
                     ? 'Ingrese sus credenciales de administrador para gestionar el catálogo central de CENABAST.'
-                    : 'Inicia sesión con tu cuenta de Google para sincronizar tus recetas, calendario y cuidadores.',
+                    : 'Inicia sesión con tu cuenta de Google. Podrás alternar entre modo Paciente y Cuidador en cualquier momento desde la barra superior.',
                 style: const TextStyle(fontSize: 13, color: Color(0xFF64748B)),
               ),
               const SizedBox(height: 18),
-              const Text('Tipo de perfil / Rol:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+              const Text('Tipo de acceso:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
               const SizedBox(height: 8),
               SegmentedButton<String>(
                 showSelectedIcon: false,
                 segments: const [
-                  ButtonSegment(value: 'paciente', label: Text('Paciente')),
-                  ButtonSegment(value: 'cuidador', label: Text('Cuidador')),
-                  ButtonSegment(value: 'administrador', label: Text('Admin')),
+                  ButtonSegment(
+                    value: 'usuario',
+                    icon: Icon(Icons.people_outline, size: 16),
+                    label: Text('Paciente / Cuidador'),
+                  ),
+                  ButtonSegment(
+                    value: 'administrador',
+                    icon: Icon(Icons.admin_panel_settings_outlined, size: 16),
+                    label: Text('Administrador'),
+                  ),
                 ],
                 selected: {_selectedRole},
                 onSelectionChanged: (set) => setState(() {
